@@ -329,7 +329,7 @@ export async function handleArena(leadId: number) {
   // 3. Composer writes the message, answering the objection (the rewrite).
   const cp = await composer(ctx, chosen.idea, firstVerdict);
   const allowed = allowedNumbers(evidence);
-  const trimmed = trimWords(cp.output.body.replace(new RegExp(optOut.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ""), 90);
+  const trimmed = trimWords(cp.output.body.replace(new RegExp(optOut.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ""), 95);
   const clean = sanitizeBody(trimmed);
   const checked = claimCheck(clean.body, allowed, optOut);
   checked.cut.push(...clean.cut);
@@ -385,6 +385,8 @@ export async function handleArena(leadId: number) {
   setLead(leadId, { stage: "ready", needsReview });
   const t = lead(leadId);
   E("system", "ready", `Pitch ready · ${t.tokensIn + t.tokensOut} tokens · $${t.costUsd.toFixed(4)}`);
+  // The pitch says "I've already built a demo page": build it now so that's true before anything is sent.
+  enqueue("page", `page:${leadId}:auto:${Date.now()}`, { leadId }, { campaignId: l.campaignId, leadId, priority: 4, maxAttempts: 2 });
   if (t.channel === "email" && !needsReview && getSetting("auto_send") === "on") requestSend(leadId, { auto: true });
 }
 // ---------------- Demo website per lead ----------------

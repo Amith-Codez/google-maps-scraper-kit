@@ -88,10 +88,10 @@ export const ComposerOut = z.object({
     .array(
       z.object({
         line: z.string(),
-        principle: z.enum(["specific_observation", "local_social_proof", "reciprocity", "low_effort_next_step", "respect"]),
+        principle: z.enum(["specific_observation", "loss_aversion", "curiosity", "local_social_proof", "reciprocity", "low_effort_next_step", "respect"]),
       }),
     )
-    .max(6),
+    .max(8),
   voice_script: z.string().describe("at most 55 words: the idea and the offer only; no business name, no ratings, no Maps data"),
 });
 export type ComposerOut = z.infer<typeof ComposerOut>;

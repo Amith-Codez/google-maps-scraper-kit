@@ -64,7 +64,7 @@ function schemaHint(schema: z.ZodType<unknown>): string {
   }
 }
 
-async function callOnce<T>(p: ProviderConfig, call: LlmCall<T>, prompt: string, maxOut: number) {
+async function callOnce<T>(p: ProviderConfig, call: LlmCall<T>, prompt: string, maxOut: number, modelOverride?: string) {
   const provider = createOpenAICompatible({
     name: p.id,
     baseURL: p.baseURL,
@@ -72,7 +72,7 @@ async function callOnce<T>(p: ProviderConfig, call: LlmCall<T>, prompt: string, 
     supportsStructuredOutputs: p.structured,
     includeUsage: true,
   });
-  const model = activeModel(p);
+  const model = modelOverride ?? activeModel(p);
   const system = p.structured
     ? call.system
     : `${call.system}\n\nRespond with ONLY a JSON object (no prose, no code fences) that matches this JSON Schema:\n${schemaHint(call.schema)}`;
@@ -111,9 +111,11 @@ export const llm: LLM = {
     const errors: string[] = [];
 
     for (const p of chain) {
-      for (let attempt = 1; attempt <= 2; attempt++) {
+      const models = [activeModel(p), ...(p.backupModels ?? []).filter((m) => m !== activeModel(p))];
+      let mi = 0;
+      for (let attempt = 1; attempt <= 2 + (p.backupModels?.length ?? 0); attempt++) {
         try {
-          const { res, model } = await callOnce(p, call, prompt, maxOut);
+          const { res, model } = await callOnce(p, call, prompt, maxOut, models[mi]);
           const inT = res.usage.inputTokens ?? estimateTokens(call.system + prompt);
           const outT = res.usage.outputTokens ?? estimateTokens(JSON.stringify(res.output));
           const cost = (inT * p.priceIn + outT * p.priceOut) / 1e6;
@@ -129,6 +131,12 @@ export const llm: LLM = {
           // A cut-off answer (finishReason "length") won't parse on a retry either: move on.
           const truncated = (err as { finishReason?: string }).finishReason === "length";
           const badJson = !truncated && /No (object|output) generated|parse|schema|JSON/i.test(msg);
+          // Rate-limited: try this provider's sibling model (its own quota) before the next provider.
+          const limited = /too many requests|rate limit|429|quota/i.test(msg);
+          if (limited && mi < models.length - 1) {
+            mi++;
+            continue;
+          }
           if (!badJson) break;
         }
       }

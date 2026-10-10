@@ -14,6 +14,8 @@ export interface ProviderConfig {
   structured: boolean;
   // Extra request options, e.g. keep reasoning models from spending the token cap on thinking.
   options?: Record<string, unknown>;
+  // Sibling models with their own rate limits, tried before moving to the next provider.
+  backupModels?: string[];
 }
 
 // Small, fast model per provider (checked against each provider's /models list on the day).
@@ -29,6 +31,7 @@ export function providerConfigs(): Record<ProviderId, ProviderConfig> {
       priceIn: 0.25,
       priceOut: 1.5,
       structured: true,
+      backupModels: ["gemini-3.5-flash-lite", "gemini-flash-lite-latest"],
     },
     groq: {
       id: "groq",
@@ -40,6 +43,7 @@ export function providerConfigs(): Record<ProviderId, ProviderConfig> {
       priceOut: 0.3,
       structured: true,
       options: { reasoningEffort: "low" },
+      backupModels: ["openai/gpt-oss-120b"],
     },
     openrouter: {
       id: "openrouter",

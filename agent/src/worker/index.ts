@@ -61,7 +61,7 @@ const handlers: Partial<Record<JobType, Handler>> = {
   },
 };
 
-const CONCURRENCY = 3;
+const CONCURRENCY = 2; // model providers rate-limit bursts; 2 parallel agent runs is the sweet spot
 let stopping = false;
 
 // The kit engine should run one search at a time, so discovery gets its own single runner.

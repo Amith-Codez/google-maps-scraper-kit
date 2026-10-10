@@ -86,6 +86,8 @@ const fetcher = (u: string) => fetch(u).then((r) => r.json());
 
 const PRINCIPLE: Record<string, string> = {
   specific_observation: "Specific observation",
+  loss_aversion: "What they're missing",
+  curiosity: "Customer moment",
   local_social_proof: "Local social proof",
   reciprocity: "Reciprocity",
   low_effort_next_step: "Low-effort next step",

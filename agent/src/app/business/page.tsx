@@ -122,7 +122,8 @@ export default function BusinessPage() {
         <div className="pointer-events-none absolute -bottom-40 left-0 h-96 w-96 rounded-full bg-neon/20 blur-3xl" />
         <div className="relative mx-auto max-w-6xl px-6 pb-16 pt-16">
           <h1 className="rise font-display max-w-4xl text-5xl font-extrabold leading-[0.95] tracking-tight md:text-7xl">
-            The AI that gets students their <span className="text-neon">first paying client.</span>
+            The AI that gets students their{" "}
+            <span className="bg-gradient-to-r from-neon via-[#E9E3FF] to-chilli bg-clip-text text-transparent">first paying client.</span>
           </h1>
           <p className="rise mt-6 max-w-2xl text-lg text-paper/75" style={{ animationDelay: "120ms" }}>
             Two sentences in. Pitchwala finds real local shops, invents the one idea each would want, builds a demo of it, and pitches it in the owner&apos;s language.
@@ -139,11 +140,42 @@ export default function BusinessPage() {
         </div>
       </section>
 
+      {/* sticker band */}
+      <div className="overflow-hidden border-y-2 border-ink bg-neon py-3">
+        <div className="marquee flex w-max" style={{ animationDuration: "60s" }}>
+          {[0, 1].map((k) => (
+            <div key={k} className="flex">
+              {["first client in 7 days", "desi Hindi voice notes", "no generic pitches", "built before asked", "3 AI agents argue for you", "never spams", "runs on any AI", "your phone pings on a yes"].map((w, i) => (
+                <span key={w + k} className={`mx-3 inline-flex items-center gap-3 whitespace-nowrap font-display text-lg font-extrabold uppercase ${i % 2 ? "text-ink" : "text-chilli"}`}>
+                  {w} <span className="text-ink">✦</span>
+                </span>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* TL;DR */}
+      <section className="mx-auto max-w-6xl px-6 pt-14">
+        <div className="grid gap-3 md:grid-cols-3">
+          {[
+            ["The pain", "Students can do the work but can't land a first client.", "bg-lilac rotate-[-1.5deg]"],
+            ["The product", "Two sentences → real shops → a specific idea + demo site → a pitch in their language.", "bg-white rotate-[1deg] border-2 border-ink"],
+            ["The money", "Students pay monthly; campuses buy seats; we earn more when they win.", "bg-chilli text-white rotate-[-0.5deg]"],
+          ].map(([h, p, c]) => (
+            <div key={h} className={`sticker rounded-3xl p-6 shadow-[5px_5px_0_0_#14110F] ${c}`}>
+              <div className="font-display text-xs font-extrabold uppercase tracking-widest opacity-70">TL;DR · {h}</div>
+              <p className="font-display mt-2 text-xl font-bold leading-snug">{p}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* 1 · problem */}
       <section id="problem" className="mx-auto grid max-w-6xl gap-10 px-6 py-20 md:grid-cols-2 md:items-center">
         <div>
           <Label n="1">Problem</Label>
-          <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight">Two sides that can&apos;t find each other.</h2>
+          <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight"><span className="highlight">Two sides that can&apos;t find each other.</span></h2>
           <ul className="mt-5 space-y-3 text-lg text-ink-2">
             <li><b className="text-ink">Students</b> can design, code and edit, but nobody teaches them to land a client.</li>
             <li><b className="text-ink">Local shops</b> need a menu online, bookings, enquiries, and ignore generic &ldquo;we&apos;ll build you a website&rdquo; spam.</li>
@@ -168,8 +200,8 @@ export default function BusinessPage() {
           <div className="mt-10 grid gap-3 md:grid-cols-4">
             {FLOW.map((f, i) => (
               <div key={f.h} className="relative rounded-3xl border border-line bg-paper p-6 transition hover:-translate-y-1 hover:shadow-xl">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-ink text-neon"><f.icon className="h-6 w-6" /></span>
-                <div className="font-display mt-4 text-2xl font-extrabold">{f.h}</div>
+                <span className={`grid h-12 w-12 place-items-center rounded-2xl ${["bg-ink text-neon", "bg-chilli text-white", "bg-neon text-ink", "bg-lilac text-ink"][i]}`}><f.icon className="h-6 w-6" /></span>
+                <div className="font-display mt-4 text-3xl font-extrabold">{f.h}</div>
                 <p className="mt-1 text-sm text-ink-2">{f.p}</p>
                 {i < 3 && <ArrowRight className="absolute -right-3 top-1/2 z-10 hidden h-6 w-6 -translate-y-1/2 rounded-full bg-chilli p-1 text-white md:block" />}
               </div>
@@ -195,7 +227,7 @@ export default function BusinessPage() {
       {/* 3 · proof */}
       <section id="proof" className="mx-auto max-w-6xl px-6 py-20">
         <Label n="3">Proof, built today</Label>
-        <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight">Not a mock-up. It ran on this street.</h2>
+        <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight"><span className="highlight">Not a mock-up. It ran on this street.</span></h2>
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           <div className="rounded-3xl bg-ink p-6 text-paper md:col-span-2">
             <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
@@ -278,10 +310,10 @@ export default function BusinessPage() {
       {/* 6 · go-to-market */}
       <section id="gtm" className="mx-auto max-w-6xl px-6 py-20">
         <Label n="5">Go-to-market</Label>
-        <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight">Three doors in. One playbook each.</h2>
+        <h2 className="font-display mt-4 text-4xl font-extrabold tracking-tight"><span className="highlight">Three doors in. One playbook each.</span></h2>
         <div className="mt-10 grid gap-4 lg:grid-cols-3">
           {GTM.map((g, i) => (
-            <div key={g.who} className="flex flex-col rounded-3xl border-2 border-ink bg-white p-6 shadow-[5px_5px_0_0_#14110F]">
+            <div key={g.who} className={`sticker flex flex-col rounded-3xl border-2 border-ink bg-white p-6 ${["rotate-[-1deg] shadow-[6px_6px_0_0_#C8FF3D]", "rotate-[0.8deg] shadow-[6px_6px_0_0_#D9381E]", "rotate-[-0.6deg] shadow-[6px_6px_0_0_#E9E3FF]"][i]}`}>
               <div className="flex items-center justify-between">
                 <span className="grid h-12 w-12 place-items-center rounded-2xl bg-ink text-neon"><g.icon className="h-6 w-6" /></span>
                 <span className="font-display text-4xl font-extrabold text-line">0{i + 1}</span>

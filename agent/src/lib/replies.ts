@@ -317,7 +317,7 @@ export async function handleFollowUp(leadId: number, requestFollowUpSend: (messa
   if (!first) return;
   const idea = db.select().from(schema.ideas).where(eq(schema.ideas.leadId, leadId)).all().find((i) => i.verdict === "chosen");
   const optOut = getSetting("opt_out_text") ?? "Reply STOP and I won't write again.";
-  const body = `Hi again, a quick follow-up on the ${idea ? `"${idea.title}" ` : ""}idea I sketched for ${lead.name}. If it's useful, reply YES and I'll send the 2-minute demo; if not, no worries at all.\n\n${optOut}`;
+  const body = `Quick nudge: the demo page I built for ${lead.name}${idea ? ` ("${idea.title}")` : ""} is still waiting for you. One "YES" and I'll send the link with a 2-minute walkthrough. If it's not for you, no worries at all.\n\n${optOut}`;
   const row = db
     .insert(schema.messages)
     .values({

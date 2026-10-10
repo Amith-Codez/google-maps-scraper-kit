@@ -88,7 +88,7 @@ export function stripVoiceScript(script: string, businessName: string): { script
  */
 export function sanitizeBody(body: string): { body: string; cut: string[] } {
   const cut: string[] = [];
-  const cleaned = body.replace(/\b(specific_observation|local_social_proof|reciprocity|low_effort_next_step|respect)\s*:\s*/gi, "");
+  const cleaned = body.replace(/\b(specific_observation|loss_aversion|curiosity|local_social_proof|reciprocity|low_effort_next_step|respect)\s*:\s*/gi, "");
   const kept = splitSentences(cleaned).filter((s) => {
     const l = s.toLowerCase();
     const money = /(₹|\brs\.?\s?\d|\binr\b|\bprice|\bpricing|\bcost|\bmonthly|\bfee\b|\bfees\b|\bpay\b|\bpayment|\bdiscount|\bfree\b)/.test(l) && !/\b2-?\s?minute demo\b/.test(l.replace(/‑/g, "-"));

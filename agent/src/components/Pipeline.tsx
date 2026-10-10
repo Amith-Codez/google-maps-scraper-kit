@@ -20,11 +20,11 @@ interface Row {
   previewReplies: number;
 }
 
-const COLUMNS: { id: string; label: string; stages: string[] }[] = [
-  { id: "found", label: "Pitch ready", stages: ["ready"] },
-  { id: "contacted", label: "Contacted", stages: ["contacted"] },
-  { id: "replied", label: "Replied", stages: ["replied"] },
-  { id: "interested", label: "Interested", stages: ["interested", "won"] },
+const COLUMNS: { id: string; label: string; stages: string[]; means: string; move: string; icon: string }[] = [
+  { id: "found", label: "Pitch ready", stages: ["ready"], icon: "1", means: "The AI team wrote a pitch and built a demo page.", move: "Send the email, or forward the voice note on WhatsApp." },
+  { id: "contacted", label: "Contacted", stages: ["contacted"], icon: "2", means: "Your pitch is out. A follow-up is booked automatically.", move: "Nothing. Pitchwala waits and nudges once." },
+  { id: "replied", label: "Replied", stages: ["replied"], icon: "3", means: "They wrote back. The agent answered in the thread.", move: "Check Telegram; step in if it needs you." },
+  { id: "interested", label: "Interested", stages: ["interested", "won"], icon: "4", means: "They said yes. Your phone already buzzed.", move: "Call them today and close it." },
 ];
 
 const fetcher = (u: string) => fetch(u).then((r) => r.json());
@@ -82,7 +82,7 @@ export function Pipeline() {
   return (
     <div className="mx-auto max-w-7xl px-6 py-6">
       <h1 className="font-display text-4xl font-extrabold tracking-tight">Pipeline</h1>
-      <p className="mt-1 text-sm text-ink-2">Every conversation, from pitch to interested. Updates live.</p>
+      <p className="mt-1 text-sm text-ink-2">Every business moves left to right: <b>pitch ready → contacted → replied → interested</b>. Each column tells you what it means and what to do. Updates live.</p>
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="rounded-3xl border-2 border-ink bg-white p-5 shadow-[5px_5px_0_0_#14110F]">
           <div className="flex items-center gap-2 font-display font-bold"><TrendingUp className="h-4 w-4" /> Your funnel</div>
@@ -111,12 +111,25 @@ export function Pipeline() {
           const items = data.leads.filter((l) => col.stages.includes(l.stage));
           return (
             <div key={col.id} className="flex min-h-64 flex-col overflow-hidden rounded-3xl border border-line bg-white/70">
-              <div className={`flex items-center justify-between px-4 py-3 ${col.id === "interested" ? "bg-go text-white" : col.id === "replied" ? "bg-neon text-ink" : col.id === "contacted" ? "bg-chilli text-white" : "bg-ink text-paper"}`}>
-                <span className="font-display text-sm font-bold">{col.label}</span>
-                <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/20 px-1.5 font-mono text-xs">{items.length}</span>
+              <div className={`px-4 py-3 ${col.id === "interested" ? "bg-go text-white" : col.id === "replied" ? "bg-neon text-ink" : col.id === "contacted" ? "bg-chilli text-white" : "bg-ink text-paper"}`}>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 font-display text-sm font-bold">
+                    <span className="grid h-5 w-5 place-items-center rounded-full bg-white/25 text-[11px]">{col.icon}</span>
+                    {col.label}
+                  </span>
+                  <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/20 px-1.5 font-mono text-xs">{items.length}</span>
+                </div>
+                <p className="mt-1.5 text-[11px] leading-snug opacity-85">{col.means}</p>
+              </div>
+              <div className="border-b border-line bg-paper px-4 py-2 text-[11px]">
+                <b>Your move:</b> <span className="text-ink-2">{col.move}</span>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto p-2" style={{ maxHeight: 640 }}>
-                {!items.length && <p className="p-4 text-center text-xs text-ink-3">Nothing here yet.</p>}
+                {!items.length && (
+                  <p className="p-5 text-center text-xs text-ink-3">
+                    {col.id === "interested" ? "Your first yes lands here, with confetti." : col.id === "replied" ? "Replies show up here within seconds." : col.id === "contacted" ? "Send a pitch to see it here." : "Start a campaign to fill this."}
+                  </p>
+                )}
                 {items.map((l) => (
                   <motion.div key={l.id} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
                     <Link

@@ -26,7 +26,7 @@ const ev = (e: Evidence) => JSON.stringify(e);
 export async function strategist(ctx: ArenaCtx, avoid: string[] = [], learned = "") {
   const system = `You are the Strategist. Invent 8 creative ideas for ONE local business, each a small product its CUSTOMERS would love, that the freelancer's service can deliver.
 ${BAR}
-How to think: start from what makes THIS place special in the evidence (e.g. a 4.6 rating from 612 reviews means a much-loved place whose fans would share it; no own website means customers can't see the menu or book before visiting; rivals nearby with websites or booking show what customers here already expect). Turn that into something delightful the customers would use or share, made with the freelancer's skill.
+How to think: start from what makes THIS place special in the evidence (e.g. a 4.6 rating from 612 reviews means a much-loved place whose fans would share it; no own website means customers can't see the menu or book before visiting; rivals nearby with websites or booking show what customers here already expect). Turn that into something delightful the customers would use or share, made with the freelancer's skill, and that clearly brings the owner more customers, orders or bookings.
 Rules: every idea must close one of evidence.gaps, fix one of evidence.issues, or build on a stated strength, so there is a solid reason the owner needs it; builds_on names that gap/issue in a few words (e.g. "gap: online booking", "issue: no menu online"); no two ideas alike; never pitch "a website", "online presence", "SEO", "social media marketing", "digital marketing" or "boost sales"; don't propose what the business already has (check online_booking_link, whatsapp_link, website_kind). Titles at most 6 words. Be concrete and specific to this business type. English. Keep every field short; output compact JSON.`;
   const prompt = `Freelancer's service: ${ctx.service}
 Evidence (JSON, the only facts you may use): ${ev(ctx.evidence)}${learned ? `\n${learned}` : ""}${avoid.length ? `\nThese were rejected as generic; do better: ${avoid.join("; ")}` : ""}`;
@@ -66,20 +66,22 @@ Pitches: ${JSON.stringify(pitches)}`;
 }
 
 export async function composer(ctx: ArenaCtx, idea: Idea, twin: TwinVerdict | null) {
-  const system = `You are the Composer. Write a short first message from ${ctx.senderName}, a student freelancer, to the owner of this business, in ${LANG[ctx.language] ?? "English"}.
-Rules:
-- Under 85 words. One real fact about their business, one idea, one question. No hype, no prices, no dates, no promises of results.
-- The FIRST sentence is a warm, true observation from the evidence (e.g. how many reviews they have and their rating = customers love them), never an insult or "you lack"; never say rivals are rated higher than them. Only mention websites if the service builds websites; use rival counts only when they relate to the idea.
-- Make clear the freelancer does all the work and the 2-minute demo is free; the owner only has to reply. Never say the work itself is free or "at no cost", and never mention money.
-- Structure: (1) a warm true observation; (2) WHY THEY NEED IT: one line with a solid reason from evidence.gaps or evidence.issues, using the real rival numbers (you may name one top rival from evidence.top_rivals, politely, e.g. "2 of the 3 best-rated cafés near you, like X, already let customers book online"); (3) the idea and what their customers get; (4) the offer; (5) the opt-out line.
-- Use these persuasion principles and tag each line: specific_observation (one real fact from the evidence), local_social_proof (only if a rival count in the evidence supports it, e.g. "rivals_with_website of rivals_nearby cafés within rivals_radius_km km"), reciprocity (say you have already sketched this idea specifically for their place; never claim anything is attached), low_effort_next_step ("Reply YES and I'll send a 2-minute demo"), respect (end with exactly: "${ctx.optOut}").
-- Every number you write must appear in the evidence. Never mention Google, scraping or ratings as a compliment-trick.
-- If an owner objection is given, answer it inside the message without arguing.
-- voice_script: at most 55 words, for a WhatsApp voice note: say it's an AI-made voice note from ${ctx.senderName}, explain the idea and the offer of a free 2-minute demo only (never say the work is free). NO business name, NO ratings, NO review counts, NO addresses.`;
+  const system = `You are the Composer: the best local sales writer in India. Write a short first message from ${ctx.senderName}, a student freelancer, to the owner of this business, in ${LANG[ctx.language] ?? "English"}. Its only job: get a busy, sceptical owner to reply "YES".
+Write it in exactly this order, one or two short sentences each (under 90 words total, plain words, no hype, no exclamation marks):
+1. HOOK: open with their name and a warm, true fact that shows you looked (e.g. "612 people have reviewed Mana Katha: your regulars clearly love the food."). Never an insult; never say rivals are rated higher.
+2. WHAT THEY'RE MISSING (loss aversion): one concrete gap from evidence.gaps/issues with the real rival numbers; you may name ONE top rival from evidence.top_rivals politely (e.g. "Oasis already lets customers see the menu online, so hungry people decide before they arrive.").
+3. THE MOMENT: paint one vivid customer moment the idea creates ("Imagine a regular opening your menu on their phone and pre-ordering the Sunday special on the way.").
+4. PROOF OF EFFORT: "I've already built a quick demo page for <name>" (it exists). Never claim anything is attached.
+5. MICRO-YES: "Reply YES and I'll send you the link, plus a 2-minute walkthrough." The owner does nothing else; you do all the work.
+6. Then exactly: "${ctx.optOut}"
+Hard rules: every number must appear in the evidence; no prices, money, dates, discounts or promised results; never say the work is free; never mention Google or scraping. If an owner objection is given, quietly answer it inside steps 3-5.
+subject: curiosity + their name, max 7 words, no clickbait words (e.g. "Made something for <name>'s regulars").
+Tag each line with a principle: specific_observation (step 1), loss_aversion (step 2), curiosity (step 3), reciprocity (step 4), low_effort_next_step (step 5), local_social_proof (if a rival count is used), respect (opt-out).
+voice_script: at most 55 words, for a WhatsApp voice note: say it's an AI-made voice note from ${ctx.senderName}, the idea, and the offer to send a free 2-minute demo. NO business name, NO ratings, NO review counts, NO addresses.`;
   const prompt = `Service: ${ctx.service}
 Evidence: ${ev(ctx.evidence)}
 Idea: ${JSON.stringify(idea)}${twin ? `\nOwner objection to answer: ${twin.objection} (what would change their mind: ${twin.what_would_change_my_mind})` : ""}`;
-  return ctx.llm.generate({ agent: "composer", system, prompt, schema: ComposerOut, leadId: ctx.leadId, campaignId: ctx.campaignId, maxOutputTokens: 500, temperature: 0.6 });
+  return ctx.llm.generate({ agent: "composer", system, prompt, schema: ComposerOut, leadId: ctx.leadId, campaignId: ctx.campaignId, maxOutputTokens: 550, temperature: 0.6 });
 }
 
 /** Claim check, model second (code already checked numbers): flags sentences whose facts aren't in the evidence. */
