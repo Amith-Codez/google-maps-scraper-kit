@@ -11,6 +11,7 @@ import { writeEvent } from "../lib/events";
 import { runHealthChecks } from "../lib/health";
 import { setSetting } from "../lib/settings";
 import { BudgetExceededError } from "../lib/llm";
+import { handleDiscover, handlePlan } from "../lib/pipeline";
 
 type Handler = (job: JobRow, payload: Record<string, unknown>) => Promise<void>;
 
@@ -19,14 +20,23 @@ const handlers: Partial<Record<JobType, Handler>> = {
   async ping(job, payload) {
     writeEvent({ agent: "system", type: "ping", summary: `Worker ran test job #${job.id}`, data: payload });
   },
+  async plan(_job, payload) {
+    await handlePlan(Number(payload.campaignId));
+  },
+  async discover(_job, payload) {
+    await handleDiscover(Number(payload.campaignId));
+  },
 };
 
 const CONCURRENCY = 3;
 let stopping = false;
 
-async function runner(n: number) {
+// The kit engine should run one search at a time, so discovery gets its own single runner.
+const EXCLUSIVE: JobType[] = ["discover"];
+
+async function runner(n: number, types: JobType[]) {
   while (!stopping) {
-    const job = claimNext(Object.keys(handlers) as JobType[]);
+    const job = claimNext(types);
     if (!job) {
       await new Promise((r) => setTimeout(r, 500));
       continue;
@@ -80,7 +90,8 @@ async function main() {
   const recovered = recoverStuckJobs();
   log.info({ recovered, concurrency: CONCURRENCY }, "worker started");
   void healthLoop();
-  await Promise.all(Array.from({ length: CONCURRENCY }, (_, i) => runner(i)));
+  const general = (Object.keys(handlers) as JobType[]).filter((t) => !EXCLUSIVE.includes(t));
+  await Promise.all([runner(99, EXCLUSIVE), ...Array.from({ length: CONCURRENCY }, (_, i) => runner(i, general))]);
 }
 
 for (const sig of ["SIGINT", "SIGTERM"] as const)
