@@ -9,6 +9,14 @@ import { geocode } from "./geo";
 import { runPlanner } from "./core/planner";
 import { channelFor, opportunityScore, rivalStats } from "./core/score";
 import type { Place } from "./ports";
+import { classifyEmails, hostOf, readWebsite, websiteKind, type SiteFacts } from "./enrich";
+import { allowedNumbers, buildEvidence, type LeadFacts } from "./core/evidence";
+import { applyCriticRules, composer, critic, expandScores, modelClaimCheck, ownerTwin, strategist, type ArenaCtx } from "./core/arena";
+import { claimCheck, ensureOptOut, stripVoiceScript, trimWords, wordCount } from "./core/guards";
+import { getSetting } from "./settings";
+import { getEnv } from "./env";
+import { requestSend } from "./outbox";
+import type { TwinVerdict } from "./schemas";
 
 // The venue (Mana Katha Cafe, Vanasthalipuram): used only if geocoding fails.
 const VENUE = { lat: 17.3297, lon: 78.556 };
@@ -139,4 +147,216 @@ export async function handleDiscover(campaignId: number) {
     summary: `Found ${added} businesses${skipped ? ` (skipped ${skipped} closed or duplicate)` : ""} · ${rivals.withWebsite} list a website · median rating ${rivals.medianRating?.toFixed(1) ?? "n/a"}`,
     data: { rivals },
   });
+  queueTopLeads(campaignId);
+}
+
+// ---------------- Step 3: enrich + Idea Arena ----------------
+
+/** How many leads get ideas automatically (top by score first); the rest on demand from the lead card. */
+export const AUTO_ARENA_LEADS = 10;
+
+function lead(id: number) {
+  const l = getDb().select().from(schema.leads).where(eq(schema.leads.id, id)).get();
+  if (!l) throw new Error(`lead ${id} not found`);
+  return l;
+}
+
+function setLead(id: number, patch: Partial<typeof schema.leads.$inferInsert>) {
+  getDb().update(schema.leads).set(patch).where(eq(schema.leads.id, id)).run();
+}
+
+export function queueTopLeads(campaignId: number, n = AUTO_ARENA_LEADS) {
+  const rows = getRaw()
+    .prepare(`SELECT id FROM leads WHERE campaign_id = ? ORDER BY score DESC, id ASC LIMIT ?`)
+    .all(campaignId, n) as { id: number }[];
+  rows.forEach((r, rank) =>
+    enqueue("enrich", `enrich:${r.id}`, { leadId: r.id }, { campaignId, leadId: r.id, priority: 20 + rank }),
+  );
+}
+
+export async function handleEnrich(leadId: number, priority = 50) {
+  const l = lead(leadId);
+  const raw = getRaw();
+  const hosts = raw.prepare(`SELECT website FROM leads WHERE campaign_id = ? AND website IS NOT NULL`).all(l.campaignId) as { website: string }[];
+  const counts = new Map<string, number>();
+  for (const h of hosts.map((x) => hostOf(x.website)).filter((h): h is string => !!h)) counts.set(h, (counts.get(h) ?? 0) + 1);
+  const shared = new Set([...counts].filter(([, n]) => n > 1).map(([h]) => h));
+  const kind = websiteKind(l.website, shared);
+
+  let site: SiteFacts | null = null;
+  if (l.website && (kind === "own" || kind === "chain" || kind === "linktree")) site = await readWebsite(l.website);
+  const emailFromSite = site?.emails ?? [];
+  const { email, status } = classifyEmails(emailFromSite, { url: l.website, kind });
+
+  const ev = JSON.parse(l.evidenceJson ?? "{}");
+  ev.website_kind = kind;
+  ev.site = site ? { ok: site.ok, error: site.error, booking: site.booking, whatsapp: site.whatsapp, instagram: site.instagram, facebook: site.facebook, menu: site.menu, text: site.text?.slice(0, 600) } : null;
+  const s = opportunityScore(
+    { phone: l.phone, website: l.website, websiteKind: kind, email: status === "usable" ? email : null, rating: l.rating, reviewCount: l.reviewCount },
+    rivalStats([]),
+  );
+  setLead(leadId, {
+    websiteKind: kind,
+    email,
+    emailStatus: status,
+    channel: channelFor({ email, emailStatus: status, phone: l.phone }),
+    evidenceJson: JSON.stringify(ev),
+    score: Math.max(l.score ?? 0, s.score),
+  });
+
+  const bits = [
+    !l.website ? "no website (that's evidence)" : `website: ${kind}${site && !site.ok ? ` (couldn't load: ${site.error})` : ""}`,
+    site?.booking ? "has a booking link" : site?.ok ? "no booking link" : null,
+    site?.whatsapp ? "WhatsApp link" : null,
+    site?.instagram || kind === "instagram" ? "Instagram" : null,
+    status === "usable" ? `usable email ${email}` : status === "other_branch" ? "email belongs to another branch: not used" : status === "corporate" ? "corporate email: not used" : "no email",
+  ].filter(Boolean);
+  writeEvent({ campaignId: l.campaignId, leadId, agent: "enrich", type: "enriched", summary: `Enrich: ${bits.join(" · ")}` });
+  enqueue("arena", `arena:${leadId}`, { leadId }, { campaignId: l.campaignId, leadId, priority, maxAttempts: 2 });
+}
+
+function leadFacts(r: typeof schema.leads.$inferSelect): LeadFacts {
+  const ev = JSON.parse(r.evidenceJson ?? "{}");
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    rating: r.rating,
+    reviewCount: r.reviewCount,
+    phone: r.phone,
+    website: r.website,
+    websiteKind: r.websiteKind,
+    email: r.email,
+    emailStatus: r.emailStatus,
+    lat: r.lat,
+    lon: r.lon,
+    site: ev.site ?? null,
+  };
+}
+
+export async function handleArena(leadId: number) {
+  const l = lead(leadId);
+  const c = campaign(l.campaignId);
+  const db = getDb();
+  const all = db.select().from(schema.leads).where(eq(schema.leads.campaignId, l.campaignId)).all();
+  const evidence = buildEvidence(leadFacts(l), all.map(leadFacts));
+  const env = getEnv();
+  const optOut = getSetting("opt_out_text") ?? "Reply STOP and I won't write again.";
+  const ctx: ArenaCtx = { llm, leadId, campaignId: l.campaignId, service: c.service, language: c.language, senderName: env.SENDER_NAME, optOut, evidence };
+  const E = (agent: Parameters<typeof writeEvent>[0]["agent"], type: string, summary: string, data?: unknown) =>
+    writeEvent({ campaignId: l.campaignId, leadId, agent, type, summary, data });
+
+  // Idempotent rerun: clear this lead's previous arena output.
+  getRaw().prepare(`DELETE FROM ideas WHERE lead_id = ?`).run(leadId);
+  getRaw().prepare(`DELETE FROM messages WHERE lead_id = ? AND status = 'draft'`).run(leadId);
+  // The per-lead budget applies to each Arena run; the campaign's cost meter keeps the running total.
+  setLead(leadId, { stage: "found", needsReview: false, tokensIn: 0, tokensOut: 0, costUsd: 0 });
+
+  // 1. Strategist (+ at most one retry if every idea is rejected as generic).
+  let s = await strategist(ctx);
+  E("strategist", "ideas", `Strategist: ${s.output.ideas.length} ideas (${s.model})`, { ideas: s.output.ideas.map((i) => i.title) });
+  let cr = await critic(ctx, s.output.ideas);
+  let judged = applyCriticRules(s.output.ideas, expandScores(cr.output));
+  if (!judged.some((j) => j.keep)) {
+    E("critic", "retry", "Critic: every idea was generic; asking the Strategist again");
+    s = await strategist(ctx, judged.map((j) => j.idea.title));
+    cr = await critic(ctx, s.output.ideas);
+    judged = applyCriticRules(s.output.ideas, expandScores(cr.output));
+  }
+  const rejected = judged.filter((j) => !j.keep);
+  const kept = judged.filter((j) => j.keep);
+  E("critic", "verdicts", `Critic: kept ${kept.length}, rejected ${rejected.length}${rejected[0] ? ` (e.g. "${rejected[0].idea.title}": ${rejected[0].reason})` : ""}`);
+  getRaw().prepare(`UPDATE campaigns SET ideas_rejected = ideas_rejected + ? WHERE id = ?`).run(rejected.length, l.campaignId);
+
+  const ideaIds = new Map<number, number>();
+  for (const j of judged) {
+    const row = db
+      .insert(schema.ideas)
+      .values({
+        leadId,
+        idx: j.idx,
+        title: j.idea.title,
+        pitchLine: j.idea.customer_gets,
+        howServiceDelivers: j.idea.how_service_delivers,
+        evidenceKey: j.idea.builds_on,
+        scoresJson: j.score ? JSON.stringify({ ...j.score, total: j.total }) : null,
+        verdict: j.keep ? "kept" : "rejected",
+        rejectReason: j.keep ? null : j.reason,
+        model: s.model,
+      })
+      .returning({ id: schema.ideas.id })
+      .get();
+    ideaIds.set(j.idx, row.id);
+  }
+  if (!kept.length) {
+    setLead(leadId, { needsReview: true, stage: "ready" });
+    E("critic", "no_ideas", "No idea passed the Critic: needs your review");
+    return;
+  }
+
+  // 2. Best two → Owner Twin reads both pitches.
+  const bestIdx = cr.output.best.filter((i) => kept.some((k) => k.idx === i));
+  const best = (bestIdx.length ? bestIdx.map((i) => kept.find((k) => k.idx === i)!) : [...kept].sort((a, b) => b.total - a.total)).slice(0, 2);
+  const tw = await ownerTwin(ctx, best.map((b) => ({ idx: b.idx, pitch: `${b.idea.title}: ${b.idea.customer_gets}` })));
+  for (const v of tw.output.verdicts) {
+    const id = ideaIds.get(v.idx);
+    if (id) db.update(schema.ideas).set({ twinVerdictJson: JSON.stringify({ first: v }) }).where(eq(schema.ideas.id, id)).run();
+  }
+  const verdictFor = (idx: number): TwinVerdict | null => tw.output.verdicts.find((v) => v.idx === idx) ?? null;
+  const chosen = best.find((b) => verdictFor(b.idx)?.would_reply === "yes") ?? best[0];
+  const firstVerdict = verdictFor(chosen.idx);
+  E("twin", "verdict", `Simulated owner: ${firstVerdict?.would_reply === "yes" ? "would reply" : "wouldn't reply"} · "${firstVerdict?.objection ?? "no objection"}"`, tw.output);
+
+  // 3. Composer writes the message, answering the objection (the rewrite).
+  const cp = await composer(ctx, chosen.idea, firstVerdict);
+  const allowed = allowedNumbers(evidence);
+  const trimmed = trimWords(cp.output.body.replace(new RegExp(optOut.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ""), 85);
+  const checked = claimCheck(trimmed, allowed, optOut);
+  let body = ensureOptOut(checked.body, optOut);
+  try {
+    const mc = await modelClaimCheck(ctx, body);
+    const cuts = mc.output.cut_sentences.filter((c) => c.trim() && !/stop/i.test(c) && body.includes(c.trim()));
+    if (cuts.length) {
+      for (const c of cuts) body = body.replace(c.trim(), "").replace(/\s{2,}/g, " ");
+      body = ensureOptOut(body, optOut);
+      checked.cut.push(...cuts);
+    }
+  } catch (e) {
+    E("claimcheck", "skipped", `Model claim check skipped: ${e instanceof Error ? e.message.slice(0, 80) : "error"} (code check still applied)`);
+  }
+  const voice = stripVoiceScript(cp.output.voice_script, l.name);
+  E("composer", "draft", `Composer: ${wordCount(body)} words · ${cp.output.principles.length} principles${checked.cut.length ? ` · claim check cut ${checked.cut.length} sentence(s)` : " · claim check passed"}`, { cut: checked.cut });
+  if (voice.stripped.length) E("composer", "voice_strip", `Voice script: stripped ${voice.stripped.length} sentence(s) with Maps data`, voice.stripped);
+
+  // 4. Twin reads the final message once more.
+  const tw2 = await ownerTwin(ctx, [{ idx: chosen.idx, pitch: body }]);
+  const finalVerdict = tw2.output.verdicts[0] ?? null;
+  const chosenId = ideaIds.get(chosen.idx)!;
+  db.update(schema.ideas)
+    .set({ verdict: "chosen", twinVerdictJson: JSON.stringify({ first: firstVerdict, final: finalVerdict }) })
+    .where(eq(schema.ideas.id, chosenId))
+    .run();
+  const needsReview = finalVerdict?.would_reply !== "yes";
+  E("twin", "final", `Simulated owner after rewrite: ${needsReview ? `still no ("${finalVerdict?.objection ?? ""}"): needs your review` : "would reply"}`, finalVerdict);
+
+  const fresh = lead(leadId);
+  db.insert(schema.messages)
+    .values({
+      leadId,
+      direction: "out",
+      kind: "initial",
+      channel: fresh.channel === "email" ? "email" : "whatsapp",
+      toAddr: fresh.channel === "email" ? fresh.email : fresh.phone,
+      subject: cp.output.subject,
+      body,
+      bodyBefore: `${chosen.idea.title}: ${chosen.idea.customer_gets}`,
+      principlesJson: JSON.stringify(cp.output.principles),
+      voiceScript: voice.script,
+      status: "draft",
+    })
+    .run();
+  setLead(leadId, { stage: "ready", needsReview });
+  const t = lead(leadId);
+  E("system", "ready", `Pitch ready · ${t.tokensIn + t.tokensOut} tokens · $${t.costUsd.toFixed(4)}`);
+  if (t.channel === "email" && !needsReview && getSetting("auto_send") === "on") requestSend(leadId, { auto: true });
 }

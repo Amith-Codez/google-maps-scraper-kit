@@ -8,6 +8,8 @@ export const DEFAULT_SETTINGS = {
   daily_cap: "",
   opt_out_text: "Reply STOP and I won't write again.",
   language: "en",
+  // Auto-send ready email pitches (off until the user approves real sends).
+  auto_send: "off",
 } as const;
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS | "health" | "worker_heartbeat" | "telegram_chat_id";

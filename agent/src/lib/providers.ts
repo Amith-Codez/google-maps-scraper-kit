@@ -12,6 +12,8 @@ export interface ProviderConfig {
   priceIn: number;
   priceOut: number;
   structured: boolean;
+  // Extra request options, e.g. keep reasoning models from spending the token cap on thinking.
+  options?: Record<string, unknown>;
 }
 
 // Small, fast model per provider (checked against each provider's /models list on the day).
@@ -36,7 +38,8 @@ export function providerConfigs(): Record<ProviderId, ProviderConfig> {
       defaultModel: "openai/gpt-oss-20b",
       priceIn: 0.075,
       priceOut: 0.3,
-      structured: false,
+      structured: true,
+      options: { reasoningEffort: "low" },
     },
     openrouter: {
       id: "openrouter",

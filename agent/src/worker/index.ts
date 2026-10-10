@@ -11,7 +11,8 @@ import { writeEvent } from "../lib/events";
 import { runHealthChecks } from "../lib/health";
 import { setSetting } from "../lib/settings";
 import { BudgetExceededError } from "../lib/llm";
-import { handleDiscover, handlePlan } from "../lib/pipeline";
+import { handleArena, handleDiscover, handleEnrich, handlePlan } from "../lib/pipeline";
+import { handleSend } from "../lib/outbox";
 
 type Handler = (job: JobRow, payload: Record<string, unknown>) => Promise<void>;
 
@@ -25,6 +26,15 @@ const handlers: Partial<Record<JobType, Handler>> = {
   },
   async discover(_job, payload) {
     await handleDiscover(Number(payload.campaignId));
+  },
+  async enrich(job, payload) {
+    await handleEnrich(Number(payload.leadId), job.priority);
+  },
+  async arena(_job, payload) {
+    await handleArena(Number(payload.leadId));
+  },
+  async send(_job, payload) {
+    await handleSend(payload as { messageId: number; approved?: boolean; auto?: boolean });
   },
 };
 

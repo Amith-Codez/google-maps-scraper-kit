@@ -3,6 +3,7 @@ import { desc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { eventsForCampaign } from "@/lib/events";
 import { jobCounts } from "@/lib/jobs";
+import { getRaw } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -37,5 +38,10 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/campaigns/[id]"
     .where(eq(schema.leads.campaignId, id))
     .orderBy(desc(schema.leads.score), schema.leads.id)
     .all();
-  return NextResponse.json({ campaign, leads, events: eventsForCampaign(id, 30), jobs: jobCounts(id) });
+  const working = (
+    getRaw()
+      .prepare(`SELECT DISTINCT lead_id FROM jobs WHERE campaign_id = ? AND type IN ('enrich','arena') AND status IN ('queued','running')`)
+      .all(id) as { lead_id: number }[]
+  ).map((r) => r.lead_id);
+  return NextResponse.json({ campaign, leads, working, events: eventsForCampaign(id, 30), jobs: jobCounts(id) });
 }

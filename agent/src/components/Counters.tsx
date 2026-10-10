@@ -39,6 +39,7 @@ function Tick({ value }: { value: number }) {
 /** Three live counters for the latest campaign + the cost meter (BUILD_PLAN §10.1, §8a). */
 export function Counters() {
   const { data } = useSWR<{ campaigns: Campaign[] }>("/api/campaigns", fetcher, { refreshInterval: 2000 });
+  const { data: stats } = useSWR<{ sentToday: number; cap: number }>("/api/stats", fetcher, { refreshInterval: 3000 });
   const c = data?.campaigns?.[0];
   const items = [
     { label: "businesses found", value: c?.found ?? 0 },
@@ -65,6 +66,14 @@ export function Counters() {
           </>
         ) : (
           "No campaign yet"
+        )}
+        {stats && (
+          <>
+            {" · "}
+            <span className="text-ink-2">
+              Sent today: {stats.sentToday} / {stats.cap}
+            </span>
+          </>
         )}
       </p>
     </div>

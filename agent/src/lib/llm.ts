@@ -85,6 +85,7 @@ async function callOnce<T>(p: ProviderConfig, call: LlmCall<T>, prompt: string, 
     temperature: call.temperature ?? 0.7,
     maxRetries: 1,
     timeout: 60_000,
+    providerOptions: p.options ? { [p.id]: p.options as Record<string, string> } : undefined,
   });
   return { res, model };
 }
@@ -120,11 +121,14 @@ export const llm: LLM = {
           log.info({ agent: call.agent, provider: p.id, model, inT, outT, leadId: call.leadId }, "llm call ok");
           return { output: res.output as T, provider: p.id, model, inputTokens: inT, outputTokens: outT, costUsd: cost };
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
+          const e2 = err as { finishReason?: string; text?: string };
+          const msg = (err instanceof Error ? err.message : String(err)) + (e2.finishReason ? ` [finish=${e2.finishReason}, ${e2.text?.length ?? 0} chars]` : "");
           errors.push(`${p.id}#${attempt}: ${msg.slice(0, 200)}`);
           log.warn({ agent: call.agent, provider: p.id, attempt, err: msg.slice(0, 300) }, "llm call failed");
           // Broken JSON gets one retry on the same provider; HTTP/auth/rate-limit errors go straight to the next one.
-          const badJson = /No (object|output) generated|parse|schema|JSON/i.test(msg);
+          // A cut-off answer (finishReason "length") won't parse on a retry either: move on.
+          const truncated = (err as { finishReason?: string }).finishReason === "length";
+          const badJson = !truncated && /No (object|output) generated|parse|schema|JSON/i.test(msg);
           if (!badJson) break;
         }
       }

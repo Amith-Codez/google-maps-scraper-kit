@@ -47,6 +47,7 @@ interface Data {
     replies: number;
   };
   leads: Lead[];
+  working: number[];
   events: { id: number; agent: string; summary: string; createdAt: number }[];
 }
 
@@ -84,6 +85,19 @@ export function ChannelChip({ channel }: { channel: string | null }) {
   );
 }
 
+export function StageChip({ stage, needsReview, working }: { stage: string; needsReview: boolean; working: boolean }) {
+  if (working)
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-paper-2 px-2 py-0.5 text-[11px] text-ink-2">
+        <Loader2 className="h-3 w-3 animate-spin" /> agents working
+      </span>
+    );
+  if (stage === "found") return null;
+  if (stage === "ready" && needsReview) return <span className="rounded-full bg-chilli-soft px-2 py-0.5 text-[11px] text-chilli">needs your review</span>;
+  const cls = stage === "interested" ? "bg-go-soft text-go" : "bg-paper-2 text-ink-2";
+  return <span className={`rounded-full px-2 py-0.5 text-[11px] ${cls}`}>{stage === "ready" ? "pitch ready" : stage}</span>;
+}
+
 export function LeadsView({ campaignId }: { campaignId: number }) {
   const { data, error } = useSWR<Data>(`/api/campaigns/${campaignId}`, fetcher, { refreshInterval: 2000 });
   const [selected, setSelected] = useState<number | null>(null);
@@ -97,6 +111,7 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
     );
 
   const { campaign: c, leads, events } = data;
+  const working = new Set(data.working ?? []);
   const busy = c.status === "planning" || c.status === "discovering";
   const center: [number, number] = [c.lat ?? 17.3297, c.lon ?? 78.556];
   const keywords: string[] = c.keywordsJson ? JSON.parse(c.keywordsJson) : [];
@@ -184,7 +199,10 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
                     </div>
                     <div className="mt-1.5 flex items-center justify-between gap-2">
                       <span className="truncate font-mono text-[11px] text-ink-2">{l.scoreReason}</span>
-                      <ChannelChip channel={l.channel} />
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <StageChip stage={l.stage} needsReview={l.needsReview} working={working.has(l.id)} />
+                        <ChannelChip channel={l.channel} />
+                      </span>
                     </div>
                   </Link>
                 </motion.div>
