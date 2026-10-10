@@ -91,6 +91,7 @@ export const messages = sqliteTable(
     subject: text("subject"),
     body: text("body"),
     bodyBefore: text("body_before"),
+    whyNeeded: text("why_needed"),
     principlesJson: text("principles_json"),
     voiceScript: text("voice_script"),
     imageUrl: text("image_url"),

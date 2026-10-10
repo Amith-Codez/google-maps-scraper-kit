@@ -82,6 +82,7 @@ export type TwinVerdict = z.infer<typeof TwinOut>["verdicts"][number];
 
 export const ComposerOut = z.object({
   subject: z.string().describe("short email subject, no clickbait"),
+  why_needed: z.string().describe("the one evidence-backed reason this business needs the idea, at most 25 words"),
   body: z.string().describe("the message, under 90 words, ending with the opt-out line"),
   principles: z
     .array(

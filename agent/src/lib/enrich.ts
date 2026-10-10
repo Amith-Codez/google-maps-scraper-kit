@@ -42,7 +42,20 @@ export function classifyEmails(
   emails: string[],
   site: { url: string | null; kind: WebsiteKind },
 ): { email: string | null; status: "usable" | "other_branch" | "corporate" | "none" } {
-  const clean = [...new Set(emails.map((e) => e.toLowerCase().replace(/^mailto:/, "").trim()))].filter(
+  const clean = [
+    ...new Set(
+      emails.map((e) =>
+        e
+          .toLowerCase()
+          .replace(/^mailto:/, "")
+          .trim()
+          // Page text glues a phone number onto the address ("8185910485name@gmail.com"): drop it.
+          .replace(/^\+?\d{10,13}(?=[a-z])/, "")
+          // ...or a word after the TLD ("care@site.inpopular"): keep known TLDs only.
+          .replace(/(\.(?:com|in|org|net|co\.in|edu|info|io))[a-z]+$/, "$1"),
+      ),
+    ),
+  ].filter(
     (e) => !/\.(png|jpe?g|gif|webp|svg)$/.test(e) && !/(example|sentry|wixpress|domain)\./.test(e),
   );
   if (!clean.length) return { email: null, status: "none" };

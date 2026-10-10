@@ -1,0 +1,1 @@
+ALTER TABLE `messages` ADD `why_needed` text;

@@ -12,7 +12,7 @@ import type { Place } from "./ports";
 import { classifyEmails, hostOf, readWebsite, websiteKind, type SiteFacts } from "./enrich";
 import { allowedNumbers, buildEvidence, type LeadFacts } from "./core/evidence";
 import { applyCriticRules, composer, critic, expandScores, modelClaimCheck, ownerTwin, strategist, type ArenaCtx } from "./core/arena";
-import { claimCheck, ensureOptOut, stripVoiceScript, trimWords, wordCount } from "./core/guards";
+import { claimCheck, ensureOptOut, splitSentences, stripVoiceScript, trimWords, wordCount } from "./core/guards";
 import { getSetting } from "./settings";
 import { getEnv } from "./env";
 import { requestSend } from "./outbox";
@@ -20,7 +20,7 @@ import type { TwinVerdict } from "./schemas";
 
 // The venue (Mana Katha Cafe, Vanasthalipuram): used only if geocoding fails.
 const VENUE = { lat: 17.3297, lon: 78.556 };
-const MAX_LEADS = 40;
+const MAX_LEADS = 60;
 
 function campaign(id: number) {
   const c = getDb().select().from(schema.campaigns).where(eq(schema.campaigns.id, id)).get();
@@ -76,11 +76,22 @@ export async function handleDiscover(campaignId: number) {
   const keywords = JSON.parse(c.keywordsJson ?? "[]") as string[];
   const q = { keywords, lat: c.lat ?? VENUE.lat, lon: c.lon ?? VENUE.lon, depth: 1 };
 
-  writeEvent({ campaignId, agent: "discovery", type: "search", summary: `Searching Google Maps via the kit (fast mode): ${keywords.join(" · ")}` });
-  let places: Place[] = await kit.search({ ...q, radiusM: 3000 });
+  // One kit job per search, one after another: fast mode returns no category, so each search's
+  // business type becomes the category (rivals are then compared like with like).
+  const searchAll = async (radiusM: number) => {
+    const out: Place[] = [];
+    for (const k of keywords) {
+      writeEvent({ campaignId, agent: "discovery", type: "search", summary: `Searching Google Maps via the kit (fast mode): ${k}` });
+      const cat = k.split(/\s+(?:in|near)\s+/i)[0].trim().toLowerCase();
+      const found = await kit.search({ ...q, keywords: [k], radiusM });
+      out.push(...found.map((p) => ({ ...p, category: p.category && p.category !== cat ? p.category : cat })));
+    }
+    return out;
+  };
+  let places: Place[] = await searchAll(3000);
   if (!places.length) {
     writeEvent({ campaignId, agent: "discovery", type: "widen", summary: "No results within 3 km; widening to 8 km once" });
-    places = await kit.search({ ...q, radiusM: 8000 });
+    places = await searchAll(8000);
   }
 
   const seen = new Set<string>();
@@ -165,16 +176,17 @@ function setLead(id: number, patch: Partial<typeof schema.leads.$inferInsert>) {
   getDb().update(schema.leads).set(patch).where(eq(schema.leads.id, id)).run();
 }
 
+/** Enrich every lead (no tokens); the top N by score, plus any lead with a usable email, go on to the Arena. */
 export function queueTopLeads(campaignId: number, n = AUTO_ARENA_LEADS) {
   const rows = getRaw()
-    .prepare(`SELECT id FROM leads WHERE campaign_id = ? ORDER BY score DESC, id ASC LIMIT ?`)
-    .all(campaignId, n) as { id: number }[];
+    .prepare(`SELECT id FROM leads WHERE campaign_id = ? ORDER BY score DESC, id ASC`)
+    .all(campaignId) as { id: number }[];
   rows.forEach((r, rank) =>
-    enqueue("enrich", `enrich:${r.id}`, { leadId: r.id }, { campaignId, leadId: r.id, priority: 20 + rank }),
+    enqueue("enrich", `enrich:${r.id}`, { leadId: r.id, arena: rank < n }, { campaignId, leadId: r.id, priority: 20 + rank }),
   );
 }
 
-export async function handleEnrich(leadId: number, priority = 50) {
+export async function handleEnrich(leadId: number, priority = 50, arena = true) {
   const l = lead(leadId);
   const raw = getRaw();
   const hosts = raw.prepare(`SELECT website FROM leads WHERE campaign_id = ? AND website IS NOT NULL`).all(l.campaignId) as { website: string }[];
@@ -212,7 +224,9 @@ export async function handleEnrich(leadId: number, priority = 50) {
     status === "usable" ? `usable email ${email}` : status === "other_branch" ? "email belongs to another branch: not used" : status === "corporate" ? "corporate email: not used" : "no email",
   ].filter(Boolean);
   writeEvent({ campaignId: l.campaignId, leadId, agent: "enrich", type: "enriched", summary: `Enrich: ${bits.join(" · ")}` });
-  enqueue("arena", `arena:${leadId}`, { leadId }, { campaignId: l.campaignId, leadId, priority, maxAttempts: 2 });
+  // Leads we can actually email always get ideas, ahead of the rest.
+  if (arena || status === "usable")
+    enqueue("arena", `arena:${leadId}`, { leadId }, { campaignId: l.campaignId, leadId, priority: status === "usable" ? 15 : priority, maxAttempts: 2 });
 }
 
 function leadFacts(r: typeof schema.leads.$inferSelect): LeadFacts {
@@ -310,15 +324,17 @@ export async function handleArena(leadId: number) {
   // 3. Composer writes the message, answering the objection (the rewrite).
   const cp = await composer(ctx, chosen.idea, firstVerdict);
   const allowed = allowedNumbers(evidence);
-  const trimmed = trimWords(cp.output.body.replace(new RegExp(optOut.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ""), 85);
+  const trimmed = trimWords(cp.output.body.replace(new RegExp(optOut.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ""), 90);
   const checked = claimCheck(trimmed, allowed, optOut);
   let body = ensureOptOut(checked.body, optOut);
   try {
     const mc = await modelClaimCheck(ctx, body);
-    const cuts = mc.output.cut_sentences.filter((c) => c.trim() && !/stop/i.test(c) && body.includes(c.trim()));
+    // Cut whole sentences only (the model may quote a fragment), never the opt-out line.
+    const flagged = mc.output.cut_sentences.map((c) => c.trim().toLowerCase()).filter((c) => c.length > 8 && !/stop/.test(c));
+    const sentences = splitSentences(body.replace(optOut, ""));
+    const cuts = sentences.filter((sen) => flagged.some((f) => sen.toLowerCase().includes(f) || f.includes(sen.toLowerCase())));
     if (cuts.length) {
-      for (const c of cuts) body = body.replace(c.trim(), "").replace(/\s{2,}/g, " ");
-      body = ensureOptOut(body, optOut);
+      body = ensureOptOut(sentences.filter((sen) => !cuts.includes(sen)).join(" "), optOut);
       checked.cut.push(...cuts);
     }
   } catch (e) {
@@ -350,6 +366,7 @@ export async function handleArena(leadId: number) {
       subject: cp.output.subject,
       body,
       bodyBefore: `${chosen.idea.title}: ${chosen.idea.customer_gets}`,
+      whyNeeded: cp.output.why_needed,
       principlesJson: JSON.stringify(cp.output.principles),
       voiceScript: voice.script,
       status: "draft",

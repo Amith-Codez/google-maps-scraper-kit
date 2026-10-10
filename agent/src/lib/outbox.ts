@@ -149,7 +149,13 @@ export async function handleSend(payload: { messageId: number; approved?: boolea
   }
   const { msg, lead } = c;
   try {
-    const sent = await gmail.send({ to: msg.toAddr!, subject: msg.subject ?? "An idea for you", text: msg.body ?? "" });
+    const sent = await gmail.send({
+      to: msg.toAddr!,
+      subject: msg.subject ?? "An idea for you",
+      text: msg.body ?? "",
+      inReplyTo: msg.inReplyTo ?? undefined,
+      references: msg.inReplyTo ? [msg.inReplyTo] : undefined,
+    });
     const now = Date.now();
     getRaw().prepare(`UPDATE messages SET status = 'sent', message_id = ?, sent_at = ? WHERE id = ?`).run(sent.messageId, now, msg.id);
     if (msg.isPreview) {
@@ -165,7 +171,7 @@ export async function handleSend(payload: { messageId: number; approved?: boolea
       leadId: lead.id,
       agent: "mailer",
       type: "sent",
-      summary: `Email ${payload.auto ? "sent automatically" : payload.approved ? "sent after your approval" : "sent"} to ${msg.toAddr} · ${sentToday()}/${dailyCap()} today`,
+      summary: `${msg.kind === "follow_up" ? "Follow-up" : "Email"} ${payload.auto ? "sent automatically" : payload.approved ? "sent after your approval" : "sent"} to ${msg.toAddr} · ${sentToday()}/${dailyCap()} today`,
     });
     onSent?.(lead.id, msg.kind, now);
   } catch (e) {
@@ -179,4 +185,9 @@ export async function handleSend(payload: { messageId: number; approved?: boolea
 export let onSent: ((leadId: number, kind: string, at: number) => void) | undefined;
 export function setOnSent(fn: typeof onSent) {
   onSent = fn;
+}
+
+/** Queue a follow-up message created by the follow-up job (same gate, cap and opt-out). */
+export function requestFollowUpSend(messageId: number, leadId: number) {
+  enqueue("send", `send:${leadId}:follow_up`, { messageId, auto: true }, { leadId, priority: 3, maxAttempts: 1 });
 }

@@ -46,7 +46,7 @@ export function StartForm() {
       <textarea
         className={`${field} mt-2`}
         rows={2}
-        placeholder="I make short Instagram reels and edit videos for brands."
+        placeholder="I build websites for local businesses."
         value={service}
         onChange={(e) => setService(e.target.value)}
         required

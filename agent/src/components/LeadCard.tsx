@@ -29,6 +29,7 @@ interface Msg {
   subject: string | null;
   body: string | null;
   bodyBefore: string | null;
+  whyNeeded: string | null;
   principlesJson: string | null;
   voiceScript: string | null;
   status: string;
@@ -184,6 +185,62 @@ function TwinBubble({ label, t }: { label: string; t: Twin }) {
   );
 }
 
+interface Rival {
+  name: string;
+  rating: number | null;
+  reviews: number | null;
+  why_winning: string[];
+}
+
+/** Who's winning nearby and why, what this business is missing, and its issues (all computed from real data). */
+function RivalsPanel({ evidence }: { evidence: Record<string, unknown> }) {
+  const top = (evidence.top_rivals as Rival[] | undefined) ?? [];
+  const gaps = (evidence.gaps as string[] | undefined) ?? [];
+  const issues = (evidence.issues as string[] | undefined) ?? [];
+  if (!top.length && !gaps.length && !issues.length) return null;
+  return (
+    <div className="mt-4 border-t border-line pt-3">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-ink-3">
+        Rivals within {String(evidence.rivals_radius_km)} km · who's winning and why
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {top.map((r) => (
+          <li key={r.name} className="rounded-md bg-paper px-2 py-1.5">
+            <div className="truncate text-xs font-medium">{r.name}</div>
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {r.why_winning.map((w) => (
+                <span key={w} className="rounded border border-line bg-white px-1 font-mono text-[10px] text-ink-2">
+                  {w}
+                </span>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {gaps.length > 0 && (
+        <>
+          <p className="mt-3 text-[11px] font-medium uppercase tracking-wider text-ink-3">What they have that this business doesn't</p>
+          <ul className="mt-1 space-y-0.5 text-xs text-chilli">
+            {gaps.map((g) => (
+              <li key={g}>— {g}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {issues.length > 0 && (
+        <>
+          <p className="mt-3 text-[11px] font-medium uppercase tracking-wider text-ink-3">Issues</p>
+          <ul className="mt-1 space-y-0.5 text-xs text-ink-2">
+            {issues.map((g) => (
+              <li key={g}>· {g}</li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function LeadCard({ leadId }: { leadId: number }) {
   const { data, mutate } = useSWR<Data>(`/api/leads/${leadId}`, fetcher, { refreshInterval: 2000 });
   const [busy, setBusy] = useState(false);
@@ -261,7 +318,7 @@ export function LeadCard({ leadId }: { leadId: number }) {
         <Section title="Evidence">
           <div className="font-mono text-[11.5px]">
             {Object.entries(evidence)
-              .filter(([k]) => k !== "site_snippet")
+              .filter(([k]) => !["site_snippet", "top_rivals", "gaps", "issues"].includes(k))
               .map(([k, v]) => (
                 <EvidenceRow key={k} k={k} v={v} />
               ))}
@@ -272,6 +329,7 @@ export function LeadCard({ leadId }: { leadId: number }) {
           {typeof evidence.site_snippet === "string" && (
             <p className="mt-3 line-clamp-4 font-mono text-[11px] text-ink-3">site: "{evidence.site_snippet}"</p>
           )}
+          <RivalsPanel evidence={evidence} />
         </Section>
 
         {/* Idea Arena */}
@@ -333,6 +391,12 @@ export function LeadCard({ leadId }: { leadId: number }) {
                 <p className="text-[11px] uppercase tracking-wider text-ink-3">Before (raw idea)</p>
                 <p className="mt-1 text-sm text-ink-2">{draft.bodyBefore}</p>
               </div>
+              {draft.whyNeeded && (
+                <div className="mt-3 rounded-lg border-l-2 border-chilli bg-chilli-soft/50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wider text-chilli">Why they need it</p>
+                  <p className="mt-0.5 text-sm">{draft.whyNeeded}</p>
+                </div>
+              )}
               <div className="mt-3 rounded-lg border border-line bg-white px-3 py-3">
                 <p className="text-[11px] uppercase tracking-wider text-ink-3">After (answers the owner's objection)</p>
                 {draft.subject && <p className="mt-1 text-sm font-medium">{draft.subject}</p>}

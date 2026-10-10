@@ -12,7 +12,8 @@ import { runHealthChecks } from "../lib/health";
 import { setSetting } from "../lib/settings";
 import { BudgetExceededError } from "../lib/llm";
 import { handleArena, handleDiscover, handleEnrich, handlePlan } from "../lib/pipeline";
-import { handleSend } from "../lib/outbox";
+import { handleSend, requestFollowUpSend, setOnSent } from "../lib/outbox";
+import { handleFollowUp, handleTriage, runInboxWatcher, scheduleFollowUp } from "../lib/replies";
 
 type Handler = (job: JobRow, payload: Record<string, unknown>) => Promise<void>;
 
@@ -28,13 +29,19 @@ const handlers: Partial<Record<JobType, Handler>> = {
     await handleDiscover(Number(payload.campaignId));
   },
   async enrich(job, payload) {
-    await handleEnrich(Number(payload.leadId), job.priority);
+    await handleEnrich(Number(payload.leadId), job.priority, payload.arena !== false);
   },
   async arena(_job, payload) {
     await handleArena(Number(payload.leadId));
   },
   async send(_job, payload) {
     await handleSend(payload as { messageId: number; approved?: boolean; auto?: boolean });
+  },
+  async triage(_job, payload) {
+    await handleTriage(Number(payload.messageId));
+  },
+  async follow_up(_job, payload) {
+    await handleFollowUp(Number(payload.leadId), requestFollowUpSend);
   },
 };
 
@@ -100,6 +107,11 @@ async function main() {
   const recovered = recoverStuckJobs();
   log.info({ recovered, concurrency: CONCURRENCY }, "worker started");
   void healthLoop();
+  // Every first email schedules one follow-up; a reply or STOP cancels it.
+  setOnSent((leadId, kind, at) => {
+    if (kind === "initial") scheduleFollowUp(leadId, at);
+  });
+  void runInboxWatcher(() => stopping);
   const general = (Object.keys(handlers) as JobType[]).filter((t) => !EXCLUSIVE.includes(t));
   await Promise.all([runner(99, EXCLUSIVE), ...Array.from({ length: CONCURRENCY }, (_, i) => runner(i, general))]);
 }

@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS = {
   auto_send: "off",
 } as const;
 
-export type SettingKey = keyof typeof DEFAULT_SETTINGS | "health" | "worker_heartbeat" | "telegram_chat_id";
+export type SettingKey = keyof typeof DEFAULT_SETTINGS | "health" | "worker_heartbeat" | "telegram_chat_id" | "inbox_last_uid" | "inbox_status";
 
 export function getSetting(key: SettingKey): string | undefined {
   const row = getRaw().prepare(`SELECT value FROM settings WHERE key = ?`).get(key) as { value: string } | undefined;
