@@ -10,6 +10,7 @@ export type JobType =
   | "follow_up"
   | "triage"
   | "voice_note"
+  | "notify"
   | "rerun_idea";
 
 export interface JobRow {

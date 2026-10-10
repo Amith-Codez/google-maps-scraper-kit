@@ -5,7 +5,8 @@ process.env.PITCHWALA_PROC = "worker";
 
 import { getEnv } from "../lib/env";
 import { log } from "../lib/log";
-import { getDb } from "../lib/db";
+import { getDb, schema } from "../lib/db";
+import { eq } from "drizzle-orm";
 import { claimNext, completeJob, failJob, recoverStuckJobs, type JobRow, type JobType } from "../lib/jobs";
 import { writeEvent } from "../lib/events";
 import { runHealthChecks } from "../lib/health";
@@ -39,6 +40,14 @@ const handlers: Partial<Record<JobType, Handler>> = {
   },
   async triage(_job, payload) {
     await handleTriage(Number(payload.messageId));
+  },
+  // Voice agent's markInterested → one Telegram ping per lead (the job key is interest:<leadId>).
+  async notify(_job, payload) {
+    const { telegram } = await import("../lib/adapters/telegram");
+    const lead = getDb().select().from(schema.leads).where(eq(schema.leads.id, Number(payload.leadId))).get();
+    if (!lead) return;
+    await telegram.text(`🔥 ${lead.name} is interested (Talk to Pitchwala voice call)\n\n"${String(payload.summary)}"\n\nNext step: call them at the time they mentioned.${lead.phone ? `\nPhone: ${lead.phone}` : ""}`);
+    writeEvent({ campaignId: lead.campaignId, leadId: lead.id, agent: "notifier", type: "ping", summary: "Pinged you on Telegram: interested via voice" });
   },
   async follow_up(_job, payload) {
     await handleFollowUp(Number(payload.leadId), requestFollowUpSend);

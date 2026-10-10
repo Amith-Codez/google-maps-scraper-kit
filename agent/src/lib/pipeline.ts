@@ -12,7 +12,7 @@ import type { Place } from "./ports";
 import { classifyEmails, hostOf, readWebsite, websiteKind, type SiteFacts } from "./enrich";
 import { allowedNumbers, buildEvidence, type LeadFacts } from "./core/evidence";
 import { applyCriticRules, composer, critic, expandScores, modelClaimCheck, ownerTwin, strategist, type ArenaCtx } from "./core/arena";
-import { claimCheck, ensureOptOut, splitSentences, stripVoiceScript, trimWords, wordCount } from "./core/guards";
+import { claimCheck, ensureOptOut, genericPhrase, sanitizeBody, splitSentences, stripVoiceScript, trimWords, wordCount } from "./core/guards";
 import { getSetting } from "./settings";
 import { getEnv } from "./env";
 import { requestSend } from "./outbox";
@@ -182,11 +182,12 @@ export function queueTopLeads(campaignId: number, n = AUTO_ARENA_LEADS) {
     .prepare(`SELECT id FROM leads WHERE campaign_id = ? ORDER BY score DESC, id ASC`)
     .all(campaignId) as { id: number }[];
   rows.forEach((r, rank) =>
-    enqueue("enrich", `enrich:${r.id}`, { leadId: r.id, arena: rank < n }, { campaignId, leadId: r.id, priority: 20 + rank }),
+    enqueue("enrich", `enrich:${r.id}`, { leadId: r.id, arena: rank < n }, { campaignId, leadId: r.id, priority: 12 }),
   );
 }
 
-export async function handleEnrich(leadId: number, priority = 50, arena = true) {
+export async function handleEnrich(leadId: number, _priority = 50, arena = true) {
+  const priority = 20 + (getRaw().prepare(`SELECT COUNT(*) n FROM leads WHERE campaign_id = (SELECT campaign_id FROM leads WHERE id = ?) AND score > (SELECT score FROM leads WHERE id = ?)`).get(leadId, leadId) as { n: number }).n;
   const l = lead(leadId);
   const raw = getRaw();
   const hosts = raw.prepare(`SELECT website FROM leads WHERE campaign_id = ? AND website IS NOT NULL`).all(l.campaignId) as { website: string }[];
@@ -325,7 +326,9 @@ export async function handleArena(leadId: number) {
   const cp = await composer(ctx, chosen.idea, firstVerdict);
   const allowed = allowedNumbers(evidence);
   const trimmed = trimWords(cp.output.body.replace(new RegExp(optOut.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), ""), 90);
-  const checked = claimCheck(trimmed, allowed, optOut);
+  const clean = sanitizeBody(trimmed);
+  const checked = claimCheck(clean.body, allowed, optOut);
+  checked.cut.push(...clean.cut);
   let body = ensureOptOut(checked.body, optOut);
   try {
     const mc = await modelClaimCheck(ctx, body);
@@ -352,7 +355,10 @@ export async function handleArena(leadId: number) {
     .set({ verdict: "chosen", twinVerdictJson: JSON.stringify({ first: firstVerdict, final: finalVerdict }) })
     .where(eq(schema.ideas.id, chosenId))
     .run();
-  const needsReview = finalVerdict?.would_reply !== "yes";
+  // Too little left after the guards (the idea itself was cut): a human should look first.
+  const tooThin = wordCount(body.replace(optOut, "")) < 30;
+  const needsReview = finalVerdict?.would_reply !== "yes" || tooThin;
+  if (tooThin) E("claimcheck", "thin", "Guards cut too much of the message: needs your review");
   E("twin", "final", `Simulated owner after rewrite: ${needsReview ? `still no ("${finalVerdict?.objection ?? ""}"): needs your review` : "would reply"}`, finalVerdict);
 
   const fresh = lead(leadId);
@@ -363,7 +369,7 @@ export async function handleArena(leadId: number) {
       kind: "initial",
       channel: fresh.channel === "email" ? "email" : "whatsapp",
       toAddr: fresh.channel === "email" ? fresh.email : fresh.phone,
-      subject: cp.output.subject,
+      subject: genericPhrase(cp.output.subject) || /\b(boost|grow|increase)\b/i.test(cp.output.subject) ? `An idea for ${l.name}` : cp.output.subject,
       body,
       bodyBefore: `${chosen.idea.title}: ${chosen.idea.customer_gets}`,
       whyNeeded: cp.output.why_needed,

@@ -81,3 +81,24 @@ export function stripVoiceScript(script: string, businessName: string): { script
   });
   return { script: kept.join(" "), stripped };
 }
+
+/**
+ * Final message hygiene, in code: strip leaked principle labels, cut sentences that talk money (except the
+ * free 2-minute demo), use a generic phrase, or tell the owner they're rated lower than rivals.
+ */
+export function sanitizeBody(body: string): { body: string; cut: string[] } {
+  const cut: string[] = [];
+  const cleaned = body.replace(/\b(specific_observation|local_social_proof|reciprocity|low_effort_next_step|respect)\s*:\s*/gi, "");
+  const kept = splitSentences(cleaned).filter((s) => {
+    const l = s.toLowerCase();
+    const money = /(₹|\brs\.?\s?\d|\binr\b|\bprice|\bpricing|\bcost|\bmonthly|\bfee\b|\bfees\b|\bpay\b|\bpayment|\bdiscount|\bfree\b)/.test(l) && !/\b2-?\s?minute demo\b/.test(l.replace(/‑/g, "-"));
+    const insult = /rated higher than|higher rated than|lower rating|rated lower/.test(l);
+    const generic = genericPhrase(s) !== null;
+    if (money || insult || generic) {
+      cut.push(s);
+      return false;
+    }
+    return true;
+  });
+  return { body: kept.join(" "), cut };
+}
