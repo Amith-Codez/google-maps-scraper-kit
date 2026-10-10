@@ -3,13 +3,15 @@
 import Link from "next/link";
 import useSWR from "swr";
 import { motion } from "motion/react";
-import { Loader2, TrendingUp, Sparkles } from "lucide-react";
+import { Loader2, TrendingUp, Sparkles, Send, Check, X } from "lucide-react";
+import { useState } from "react";
 
 interface Row {
   id: number;
   name: string;
   stage: string;
   channel: string | null;
+  email: string | null;
   needsReview: number;
   followUpAt: number | null;
   contactedAt: number | null;
@@ -64,7 +66,24 @@ function WhatsWorking() {
 }
 
 export function Pipeline() {
-  const { data } = useSWR<{ leads: Row[] }>("/api/pipeline", fetcher, { refreshInterval: 2000 });
+  const { data, mutate } = useSWR<{ leads: Row[] }>("/api/pipeline", fetcher, { refreshInterval: 2000 });
+  const { data: stats } = useSWR<{ sentToday: number; cap: number }>("/api/stats", fetcher, { refreshInterval: 3000 });
+  const [picked, setPicked] = useState<number[]>([]);
+  const [confirming, setConfirming] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const toggle = (id: number) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  async function sendPicked() {
+    setSending(true);
+    const res = await fetch("/api/send-batch", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ leadIds: picked }) });
+    const j = await res.json();
+    const ok = (j.results ?? []).filter((r: { ok: boolean }) => r.ok).length;
+    setResult(res.ok ? `${ok} email${ok === 1 ? "" : "s"} queued through the gate · ${j.sentToday}/${j.cap} sent today` : (j.error ?? "Failed"));
+    setPicked([]);
+    setConfirming(false);
+    setSending(false);
+    await mutate();
+  }
   if (!data)
     return (
       <div className="flex items-center justify-center gap-2 p-16 text-ink-3">
@@ -109,6 +128,46 @@ export function Pipeline() {
         </div>
         <WhatsWorking />
       </div>
+      {(picked.length > 0 || result) && (
+        <div className="sticky top-16 z-30 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-3xl border-2 border-ink bg-neon px-5 py-3 shadow-[4px_4px_0_0_#14110F]">
+          {picked.length > 0 ? (
+            <>
+              <span className="font-display font-bold">{picked.length} selected to email</span>
+              <span className="text-sm">{stats ? `${Math.max(0, stats.cap - stats.sentToday)} sends left today` : ""}</span>
+              <div className="flex gap-2">
+                <button onClick={() => setPicked([])} className="rounded-xl border border-ink px-3 py-2 text-sm">Clear</button>
+                <button onClick={() => setConfirming(true)} className="inline-flex items-center gap-2 rounded-xl bg-ink px-4 py-2 font-display font-bold text-paper">
+                  <Send className="h-4 w-4" /> Send email to {picked.length}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="font-display font-bold">{result}</span>
+              <button onClick={() => setResult(null)} aria-label="Dismiss"><X className="h-4 w-4" /></button>
+            </>
+          )}
+        </div>
+      )}
+      {confirming && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/50 p-6">
+          <div className="w-full max-w-md rounded-3xl border-2 border-ink bg-white p-6 shadow-[6px_6px_0_0_#C8FF3D]">
+            <div className="font-display text-xl font-extrabold">Send {picked.length} email{picked.length === 1 ? "" : "s"} from your Gmail?</div>
+            <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-sm">
+              {data.leads.filter((l) => picked.includes(l.id)).map((l) => (
+                <li key={l.id} className="flex justify-between gap-2"><span className="truncate font-medium">{l.name}</span><span className="truncate text-ink-3">{l.email}</span></li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-ink-3">Each one carries the opt-out line, respects today&apos;s cap and the never-contact-again list, and goes once per business.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setConfirming(false)} className="rounded-xl border border-line px-4 py-2 text-sm">Cancel</button>
+              <button onClick={sendPicked} disabled={sending} className="inline-flex items-center gap-2 rounded-xl bg-chilli px-4 py-2 font-display font-bold text-white disabled:opacity-60">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Yes, send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="mt-5 grid gap-4 md:grid-cols-4">
         {COLUMNS.map((col) => {
           const items = data.leads.filter((l) => col.stages.includes(l.stage));
@@ -134,7 +193,20 @@ export function Pipeline() {
                   </p>
                 )}
                 {items.map((l) => (
-                  <motion.div key={l.id} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+                  <motion.div key={l.id} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="relative">
+                    {col.id === "found" && (
+                      l.channel === "email" && l.email ? (
+                        <button
+                          onClick={() => toggle(l.id)}
+                          aria-label={picked.includes(l.id) ? "Unselect" : "Select to send"}
+                          className={`absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-lg border-2 transition ${picked.includes(l.id) ? "border-ink bg-neon" : "border-line bg-white hover:border-ink"}`}
+                        >
+                          {picked.includes(l.id) && <Check className="h-4 w-4" />}
+                        </button>
+                      ) : (
+                        <span className="absolute right-2 top-2 z-10 rounded-md bg-paper-2 px-1.5 py-0.5 text-[9px] text-ink-3" title="No usable email: forward the voice note on WhatsApp">WhatsApp</span>
+                      )
+                    )}
                     <Link
                       href={`/leads/${l.id}`}
                       className={`block rounded-2xl border bg-white px-3 py-2.5 transition hover:-translate-y-0.5 hover:border-ink hover:shadow-md ${col.id === "interested" ? "border-go/40" : "border-line"}`}
