@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { motion } from "motion/react";
 import { Loader2, TrendingUp, Sparkles, Send, Check, X } from "lucide-react";
 import { useState } from "react";
+import { SentMail } from "./SentMail";
 
 interface Row {
   id: number;
@@ -24,7 +25,7 @@ interface Row {
 
 const COLUMNS: { id: string; label: string; stages: string[]; means: string; move: string; icon: string }[] = [
   { id: "found", label: "Pitch ready", stages: ["ready"], icon: "1", means: "The AI team wrote a pitch and built a demo page.", move: "Send the email, or forward the voice note on WhatsApp." },
-  { id: "contacted", label: "Contacted", stages: ["contacted"], icon: "2", means: "Your pitch is out. A follow-up is booked automatically.", move: "Nothing. Pitchwala waits and nudges once." },
+  { id: "contacted", label: "Sent · waiting", stages: ["contacted"], icon: "2", means: "Email sent: it left Pitch ready. A follow-up is booked automatically.", move: "Nothing. Pitchwala waits and nudges once. Track it in Sent mail." },
   { id: "replied", label: "Replied", stages: ["replied"], icon: "3", means: "They wrote back. The agent answered in the thread.", move: "Check Telegram; step in if it needs you." },
   { id: "interested", label: "Interested", stages: ["interested", "won"], icon: "4", means: "They said yes. Your phone already buzzed.", move: "Call them today and close it." },
 ];
@@ -72,6 +73,7 @@ export function Pipeline() {
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [view, setView] = useState<"board" | "sent">("board");
   const toggle = (id: number) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   async function sendPicked() {
     setSending(true);
@@ -104,7 +106,18 @@ export function Pipeline() {
         <h1 className="font-display text-4xl font-extrabold tracking-tight">Pipeline</h1>
         <Link href="/clients" className="rounded-2xl border-2 border-ink bg-neon px-4 py-2 font-display text-sm font-bold shadow-[3px_3px_0_0_#14110F]">Export clients + closing plans →</Link>
       </div>
-      <p className="mt-1 text-sm text-ink-2">Every business moves left to right: <b>pitch ready → contacted → replied → interested</b>. Each column tells you what it means and what to do. Updates live.</p>
+      <div className="mt-4 inline-flex rounded-2xl border border-line bg-white p-1 text-sm">
+        {([["board", "Board"], ["sent", "Sent mail"]] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setView(id)} className={`rounded-xl px-4 py-1.5 font-semibold transition ${view === id ? "bg-ink text-paper" : "text-ink-2 hover:bg-paper-2"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === "sent" ? (
+        <SentMail />
+      ) : (
+      <>
+      <p className="mt-3 text-sm text-ink-2">Every business moves left to right: <b>pitch ready → contacted → replied → interested</b>. Each column tells you what it means and what to do. Updates live.</p>
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="rounded-3xl border-2 border-ink bg-white p-5 shadow-[5px_5px_0_0_#14110F]">
           <div className="flex items-center gap-2 font-display font-bold"><TrendingUp className="h-4 w-4" /> Your funnel</div>
@@ -235,6 +248,8 @@ export function Pipeline() {
           );
         })}
       </div>
+      </>
+      )}
       {lost.length > 0 && (
         <p className="mt-4 text-xs text-ink-3">
           Not interested / opted out ({lost.length}): {lost.map((l) => l.name).join(", ")}. They will never be contacted again.

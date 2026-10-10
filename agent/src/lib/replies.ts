@@ -180,7 +180,7 @@ export async function handleTriage(messageId: number) {
       E("triage", "ignored", "Out-of-office auto-reply: ignored (no reply loop)");
       return;
     case "bounce":
-      getRaw().prepare(`UPDATE leads SET email_status = 'bounced' WHERE id = ?`).run(lead.id);
+      getRaw().prepare(`UPDATE leads SET email_status = 'bounced', follow_up_at = NULL WHERE id = ?`).run(lead.id);
       if (!theirs.isPreview) cancelJob(`follow_up:${lead.id}`);
       E("mailer", "bounce", `Bounced: ${ours.toAddr} marked invalid; no retry`);
       return;
