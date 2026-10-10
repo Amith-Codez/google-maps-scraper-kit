@@ -86,6 +86,30 @@ export function ChannelChip({ channel }: { channel: string | null }) {
   );
 }
 
+const CAT_COLORS = ["bg-neon text-ink", "bg-lilac text-ink", "bg-chilli text-white", "bg-ink text-neon", "bg-[#FFE3B3] text-ink"];
+function catColor(cat: string | null) {
+  const c = cat ?? "?";
+  let h = 0;
+  for (const ch of c) h = (h * 31 + ch.charCodeAt(0)) % 997;
+  return CAT_COLORS[h % CAT_COLORS.length];
+}
+
+/** Opportunity score as a ring: fuller = more likely to need you. */
+function ScoreRing({ score }: { score: number | null }) {
+  const v = Math.max(0, Math.min(100, score ?? 0));
+  const r = 16;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className="relative grid h-11 w-11 place-items-center">
+      <svg viewBox="0 0 40 40" className="absolute inset-0 -rotate-90">
+        <circle cx="20" cy="20" r={r} fill="none" stroke="var(--paper-2)" strokeWidth="4" />
+        <circle cx="20" cy="20" r={r} fill="none" stroke="var(--chilli)" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(v / 100) * c} ${c}`} />
+      </svg>
+      <span className="font-display text-sm font-extrabold">{score ?? "–"}</span>
+    </span>
+  );
+}
+
 export function StageChip({ stage, needsReview, working }: { stage: string; needsReview: boolean; working: boolean }) {
   if (working)
     return (
@@ -177,11 +201,11 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[3fr_2fr]">
-        <div className="h-[560px] overflow-hidden rounded-xl border border-line">
+        <div className="h-[600px] overflow-hidden rounded-3xl border-2 border-ink shadow-[5px_5px_0_0_#14110F]">
           <LeadMap center={center} leads={leads} selected={selected} onSelect={setSelected} />
         </div>
 
-        <div className="flex h-[560px] flex-col overflow-hidden rounded-xl border border-line bg-white/60">
+        <div className="flex h-[600px] flex-col overflow-hidden rounded-3xl border border-line bg-white">
           <div className="space-y-2 border-b border-line px-3 py-2.5">
             <label className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-1.5">
               <Search className="h-3.5 w-3.5 text-ink-3" />
@@ -222,11 +246,12 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i, 20) * 0.04 }}
                   onMouseEnter={() => setSelected(l.id)}
-                  className={`border-b border-line px-4 py-3 transition ${selected === l.id ? "bg-paper-2" : ""}`}
+                  className={`border-b border-line px-4 py-3 transition hover:bg-paper ${selected === l.id ? "bg-paper-2" : ""}`}
                 >
                   <Link href={`/leads/${l.id}`} className="block">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
+                      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl font-display text-lg font-extrabold ${catColor(l.category)}`}>{l.name.replace(/[^A-Za-z0-9]/g, "").charAt(0).toUpperCase() || "?"}</span>
+                      <div className="min-w-0 flex-1">
                         <div className="truncate font-medium">{l.name}</div>
                         <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-3">
                           {l.rating !== null && (
@@ -239,8 +264,8 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
                           {l.phone && <span className="font-mono">{l.phone}</span>}
                         </div>
                       </div>
-                      <div className="shrink-0 text-right">
-                        <div className="text-lg font-semibold tabular-nums text-chilli">{l.score ?? "–"}</div>
+                      <div className="shrink-0" title="Opportunity score">
+                        <ScoreRing score={l.score} />
                       </div>
                     </div>
                     <div className="mt-1.5 flex items-center justify-between gap-2">

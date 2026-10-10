@@ -110,10 +110,10 @@ export function Pipeline() {
         {COLUMNS.map((col) => {
           const items = data.leads.filter((l) => col.stages.includes(l.stage));
           return (
-            <div key={col.id} className="flex min-h-64 flex-col rounded-xl border border-line bg-white/50">
-              <div className="flex items-center justify-between border-b border-line px-3 py-2.5">
-                <span className={`text-sm font-medium ${col.id === "interested" ? "text-go" : ""}`}>{col.label}</span>
-                <span className="font-mono text-xs text-ink-3">{items.length}</span>
+            <div key={col.id} className="flex min-h-64 flex-col overflow-hidden rounded-3xl border border-line bg-white/70">
+              <div className={`flex items-center justify-between px-4 py-3 ${col.id === "interested" ? "bg-go text-white" : col.id === "replied" ? "bg-neon text-ink" : col.id === "contacted" ? "bg-chilli text-white" : "bg-ink text-paper"}`}>
+                <span className="font-display text-sm font-bold">{col.label}</span>
+                <span className="grid h-6 min-w-6 place-items-center rounded-full bg-white/20 px-1.5 font-mono text-xs">{items.length}</span>
               </div>
               <div className="flex-1 space-y-2 overflow-y-auto p-2" style={{ maxHeight: 640 }}>
                 {!items.length && <p className="p-4 text-center text-xs text-ink-3">Nothing here yet.</p>}
@@ -121,7 +121,7 @@ export function Pipeline() {
                   <motion.div key={l.id} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
                     <Link
                       href={`/leads/${l.id}`}
-                      className={`block rounded-lg border bg-white px-3 py-2 transition hover:border-ink ${col.id === "interested" ? "border-go/40" : "border-line"}`}
+                      className={`block rounded-2xl border bg-white px-3 py-2.5 transition hover:-translate-y-0.5 hover:border-ink hover:shadow-md ${col.id === "interested" ? "border-go/40" : "border-line"}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-sm font-medium">{l.name}</span>

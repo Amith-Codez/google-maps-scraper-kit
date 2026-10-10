@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Check, Cpu, Loader2 } from "lucide-react";
+import { Check, Cpu, Loader2, Brain, Send, Mic, Languages } from "lucide-react";
 
 interface S {
   provider: string;
@@ -20,11 +20,20 @@ interface S {
 
 const fetcher = (u: string) => fetch(u).then((r) => r.json());
 
-function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function Card({ title, hint, children, icon: Icon, tone = "bg-ink text-neon" }: { title: string; hint?: string; children: React.ReactNode; icon?: typeof Cpu; tone?: string }) {
   return (
-    <section className="rounded-xl border border-line bg-white/70 p-5">
-      <h2 className="font-medium">{title}</h2>
-      {hint && <p className="mt-0.5 text-xs text-ink-3">{hint}</p>}
+    <section className="rounded-3xl border border-line bg-white p-6 transition hover:shadow-md">
+      <div className="flex items-start gap-3">
+        {Icon && (
+          <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl ${tone}`}>
+            <Icon className="h-5 w-5" />
+          </span>
+        )}
+        <div>
+          <h2 className="font-display text-lg font-bold">{title}</h2>
+          {hint && <p className="mt-0.5 text-xs text-ink-3">{hint}</p>}
+        </div>
+      </div>
       <div className="mt-4">{children}</div>
     </section>
   );
@@ -56,7 +65,7 @@ export function SettingsForm() {
 
   return (
     <div className="space-y-5">
-      <Card title="Model" hint="Pitchwala runs on any model. Pick the active provider; if it fails, the fallback chain takes over.">
+      <Card icon={Brain} title="Model" hint="Pitchwala runs on any model. Pick the active provider; if it fails, the fallback chain takes over.">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {data.providers.map((p) => {
             const active = data.provider === p.id;
@@ -65,7 +74,7 @@ export function SettingsForm() {
                 key={p.id}
                 disabled={!p.configured || saving !== null}
                 onClick={() => save({ provider: p.id } as Partial<S>, `Model: ${p.label}`)}
-                className={`rounded-lg border px-3 py-3 text-left transition ${active ? "border-ink bg-ink text-paper" : "border-line bg-white hover:border-ink"} disabled:opacity-40`}
+                className={`rounded-2xl border-2 px-3 py-3 text-left transition hover:-translate-y-0.5 ${active ? "border-ink bg-ink text-paper shadow-[3px_3px_0_0_#C8FF3D]" : "border-line bg-white hover:border-ink"} disabled:opacity-40`}
               >
                 <div className="flex items-center gap-1.5 text-sm font-medium">
                   {active ? <Check className="h-4 w-4" /> : <Cpu className="h-4 w-4" />} {p.label}
@@ -99,7 +108,7 @@ export function SettingsForm() {
         </div>
       </Card>
 
-      <Card title="Sending" hint="Every message carries the opt-out line; the cap and the never-contact-again list are enforced by the worker.">
+      <Card icon={Send} tone="bg-chilli text-white" title="Sending" hint="Every message carries the opt-out line; the cap and the never-contact-again list are enforced by the worker.">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="text-3xl font-semibold tabular-nums">
@@ -135,7 +144,7 @@ export function SettingsForm() {
         </label>
       </Card>
 
-      <Card title="Voice (ElevenLabs)" hint="Paste your own cloned voice (or an Indian voice from the Voice Library) and the Talk to Pitchwala agent ID. Applies instantly.">
+      <Card icon={Mic} tone="bg-neon text-ink" title="Voice (ElevenLabs)" hint="Paste your own cloned voice (or an Indian voice from the Voice Library) and the Talk to Pitchwala agent ID. Applies instantly.">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             Voice ID for voice notes
@@ -158,7 +167,7 @@ export function SettingsForm() {
         </div>
       </Card>
 
-      <Card title="Default language" hint="Messages and voice notes; can be changed per campaign on the Start screen.">
+      <Card icon={Languages} tone="bg-lilac text-ink" title="Default language" hint="Messages and voice notes; can be changed per campaign on the Start screen.">
         <div className="flex gap-2">
           {[
             ["en", "English"],

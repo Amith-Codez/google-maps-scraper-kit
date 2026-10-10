@@ -2,6 +2,9 @@ import { HealthStrip } from "@/components/HealthStrip";
 import { StartForm } from "@/components/StartForm";
 import { Counters } from "@/components/Counters";
 import { Ticker } from "@/components/Ticker";
+import { FreshFromAgents } from "@/components/FreshFromAgents";
+
+export const dynamic = "force-dynamic";
 import { Search, Swords, Send, BellRing } from "lucide-react";
 
 const STEPS = [
@@ -62,6 +65,7 @@ export default function StartPage() {
             </div>
           ))}
         </div>
+        <FreshFromAgents />
         <div className="mt-6">
           <HealthStrip />
         </div>
