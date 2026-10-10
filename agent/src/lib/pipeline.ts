@@ -129,6 +129,13 @@ export async function handleDiscover(campaignId: number) {
         phone: p.phone,
         website: p.website,
         address: p.address,
+        hours: (() => {
+          try {
+            return p.raw?.open_hours ? JSON.parse(String(p.raw.open_hours)) : null;
+          } catch {
+            return null;
+          }
+        })(),
       };
       added += insert.run({
         campaignId,

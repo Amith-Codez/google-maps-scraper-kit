@@ -6,6 +6,7 @@ import { buildEvidence, type LeadFacts } from "@/lib/core/evidence";
 import { getSetting } from "@/lib/settings";
 import { getEnv } from "@/lib/env";
 import { TalkToPitchwala } from "@/components/TalkToPitchwala";
+import { PreOrderWidget } from "@/components/PreOrderWidget";
 import type { PageOut } from "@/lib/core/pageWriter";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,21 @@ const THEMES: Record<string, Theme> = {
   fit: { bg: "#0F1012", ink: "#F4F4F0", soft: "#A5A6A0", accent: "#C8FF3D", accentInk: "#0F1012", card: "#18191C", line: "#2A2B2F" },
   other: { bg: "#FAF8F4", ink: "#14110F", soft: "#6B635D", accent: "#D9381E", accentInk: "#FFFFFF", card: "#FFFFFF", line: "#E4DDD2" },
 };
+const PHOTOS: Record<string, string[]> = {
+  food: ["photo-1554118811-1e0d58224f24", "photo-1495474472287-4d71bcdd2085", "photo-1555396273-367ea4eb4db5", "photo-1504674900247-0877df9cc836"],
+  learn: ["photo-1523240795612-9a054b0db644", "photo-1509062522246-3755977927d7", "photo-1427504494785-3a9ca7044f45", "photo-1503676260728-1c00da094a0b"],
+  fit: ["photo-1534438327276-14e5300c3a48", "photo-1571019613454-1cb2f99b2d8b", "photo-1517836357463-d25dfeac3438", "photo-1540497077202-7c8a3999166f"],
+};
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function themeKey(category: string | null): "food" | "learn" | "fit" | "other" {
+  const c = (category ?? "").toLowerCase();
+  if (/caf|restaur|bakery|food|dhaba|biryani|tea/.test(c)) return "food";
+  if (/coach|tuition|class|academy|school|college|institute/.test(c)) return "learn";
+  if (/gym|fitness|yoga|sport/.test(c)) return "fit";
+  return "other";
+}
+
 function themeFor(category: string | null): Theme {
   const c = (category ?? "").toLowerCase();
   if (/caf|restaur|bakery|food|dhaba|biryani|tea/.test(c)) return THEMES.food;
@@ -103,6 +119,12 @@ export default async function DemoSite({ params }: PageProps<"/p/[id]">) {
   const ev = buildEvidence(facts(lead), all.map(facts));
   const idea = db.select().from(schema.ideas).where(eq(schema.ideas.leadId, id)).all().find((i) => i.verdict === "chosen");
   const t = themeFor(lead.category);
+  const tk = themeKey(lead.category);
+  const evRaw = JSON.parse(lead.evidenceJson ?? "{}") as { hours?: Record<string, string[]> | null };
+  const hours = evRaw.hours && typeof evRaw.hours === "object" ? evRaw.hours : null;
+  const today = DAYS[new Date().getDay()];
+  const photos = PHOTOS[tk === "other" ? "food" : tk];
+  const rivalsWith = (f: string) => ev.top_rivals.filter((r) => r.why_winning.includes(f)).map((r) => r.name);
   const sender = getEnv().SENDER_NAME;
   const agentId = getSetting("agent_id") || process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || "";
   const mapSrc =
@@ -160,8 +182,40 @@ export default async function DemoSite({ params }: PageProps<"/p/[id]">) {
             )}
           </div>
         </div>
-        <IdeaWidget text={`${idea?.title ?? ""} ${idea?.pitchLine ?? ""} ${page.feature_title}`} t={t} cta={page.cta} />
+        <PreOrderWidget t={t} kind={tk === "learn" ? "learn" : tk === "food" ? "food" : "other"} cta={page.cta} />
       </section>
+
+      {/* gallery (sample photos, clearly labelled) */}
+      <section className="mx-auto max-w-6xl px-5 pb-12">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {photos.map((id, i) => (
+            <div
+              key={id}
+              className={`rounded-3xl bg-cover bg-center ${i === 0 ? "md:col-span-2 md:row-span-2 aspect-square md:aspect-auto" : "aspect-square"}`}
+              style={{ backgroundImage: `url(https://images.unsplash.com/${id}?w=800&q=70&auto=format&fit=crop)`, backgroundColor: t.line }}
+            />
+          ))}
+        </div>
+        <p className="mt-2 text-xs" style={{ color: t.soft }}>Sample photos: your own photos go here.</p>
+      </section>
+
+      {/* real rating, big */}
+      {lead.rating !== null && (
+        <section className="mx-auto max-w-6xl px-5 pb-14">
+          <div className="flex flex-wrap items-center gap-6 rounded-3xl border p-7" style={{ borderColor: t.line, background: t.card }}>
+            <div className="font-display text-7xl font-extrabold" style={{ color: t.accent }}>{lead.rating.toFixed(1)}</div>
+            <div>
+              <div className="flex gap-1">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Star key={i} className="h-6 w-6" style={{ color: t.accent, fill: i < Math.round(lead.rating ?? 0) ? t.accent : "transparent" }} />
+                ))}
+              </div>
+              <p className="mt-1 text-lg font-semibold">from {lead.reviewCount ?? 0} Google reviews</p>
+              <p className="text-sm" style={{ color: t.soft }}>Your best reviews get pinned here, word for word.</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="py-16" style={{ background: t.card }}>
         <div className="mx-auto max-w-6xl px-5">
@@ -191,6 +245,19 @@ export default async function DemoSite({ params }: PageProps<"/p/[id]">) {
               <Phone className="mt-1 h-4 w-4 shrink-0" /> {lead.phone}
             </p>
           )}
+          {hours && Object.keys(hours).length > 0 && (
+            <div className="mt-5 rounded-2xl border p-4" style={{ borderColor: t.line, background: t.card }}>
+              <p className="flex items-center gap-2 text-sm font-semibold"><Clock className="h-4 w-4" /> Opening hours</p>
+              <ul className="mt-2 space-y-1 text-sm">
+                {DAYS.filter((d) => hours[d]).map((d) => (
+                  <li key={d} className="flex justify-between rounded-lg px-2 py-1" style={d === today ? { background: t.accent, color: t.accentInk, fontWeight: 600 } : { color: t.soft }}>
+                    <span>{d}{d === today ? " · today" : ""}</span>
+                    <span>{hours[d].join(", ")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         {mapSrc && <iframe title="map" src={mapSrc} className="h-64 w-full rounded-3xl border" style={{ borderColor: t.line }} loading="lazy" />}
       </section>
@@ -200,6 +267,32 @@ export default async function DemoSite({ params }: PageProps<"/p/[id]">) {
         <div className="rounded-3xl bg-[#14110F] p-7 text-[#FAF8F4] md:p-10">
           <p className="text-xs font-semibold uppercase tracking-widest text-[#D9381E]">For the owner · why this, why now</p>
           <p className="font-display mt-3 text-2xl font-bold leading-snug md:text-3xl">{page.owner_note}</p>
+          <div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
+            <div className="grid grid-cols-[1.1fr_1fr_1fr] bg-white/5 text-[11px] font-semibold uppercase tracking-widest">
+              <div className="p-3 text-[#FAF8F4]/50"> </div>
+              <div className="p-3 text-[#FAF8F4]/60">Today</div>
+              <div className="p-3 text-[#C8FF3D]">With your website</div>
+            </div>
+            {[
+              ["Seeing the menu", ev.no_own_website ? "Customers have to walk in or call" : "Only if they find your site", "They browse your signature dishes on their phone"],
+              ["Ordering ahead", "Not possible: they queue when they arrive", "Pre-order, say when they'll arrive, food is ready"],
+              ["Dine in or parcel", "Decided at the counter", "Chosen in one tap, table kept for them"],
+              ["Booking", ev.online_booking_link ? "Online, but buried" : "Phone calls during your busiest hours", "Online in 10 seconds, any time of day"],
+              [
+                "Your rivals",
+                rivalsWith("own website").length || rivalsWith("online booking").length
+                  ? `${[...new Set([...rivalsWith("own website"), ...rivalsWith("online booking")])].slice(0, 2).join(" and ")} already online`
+                  : "Nobody nearby does this well yet",
+                "You're the one customers find first",
+              ],
+            ].map(([row, now, next]) => (
+              <div key={row} className="grid grid-cols-[1.1fr_1fr_1fr] border-t border-white/10 text-sm">
+                <div className="p-3 font-semibold">{row}</div>
+                <div className="p-3 text-[#FAF8F4]/60">{now}</div>
+                <div className="p-3 text-[#FAF8F4]">{next}</div>
+              </div>
+            ))}
+          </div>
           {ev.top_rivals.length > 0 && (
             <div className="mt-6 grid gap-3 md:grid-cols-3">
               {ev.top_rivals.map((r) => (
