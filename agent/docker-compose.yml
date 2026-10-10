@@ -1,0 +1,49 @@
+# One command: docker compose up --build
+# Starts the kit's scraper engine (internal only), the Pitchwala web app (:3000) and the worker.
+# Settings come from .env.local (copy .env.example). The database lives on the `pitchwala_data` volume.
+services:
+  scraper:
+    image: gosom/google-maps-scraper:v1.18.1
+    command: ["-web", "-data-folder", "/gmapsdata"]
+    volumes:
+      - gmaps_data:/gmapsdata
+      - gmaps_cache:/opt
+    # No ports: only web/worker can reach it on the compose network. Never expose it (no auth).
+    restart: unless-stopped
+
+  web:
+    build: .
+    env_file: .env.local
+    environment:
+      SCRAPER_BASE_URL: http://scraper:8080
+      OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
+      DATABASE_PATH: data/agent.db
+    ports:
+      - "3000:3000"
+    volumes:
+      - pitchwala_data:/app/data
+    depends_on: [worker]
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["npx", "tsx", "src/worker/index.ts"]
+    env_file: .env.local
+    environment:
+      PITCHWALA_PROC: worker
+      SCRAPER_BASE_URL: http://scraper:8080
+      OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
+      DATABASE_PATH: data/agent.db
+    volumes:
+      - pitchwala_data:/app/data
+    depends_on: [scraper]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+volumes:
+  gmaps_data:
+  gmaps_cache:
+  pitchwala_data:

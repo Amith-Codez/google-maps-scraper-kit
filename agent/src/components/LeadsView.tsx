@@ -121,7 +121,7 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-wider text-ink-3">Campaign #{c.id}</p>
-          <h1 className="mt-1 text-xl font-semibold">
+          <h1 className="font-display mt-1 text-2xl font-extrabold tracking-tight">
             {c.service} <span className="text-ink-3">→</span> {c.clients}
           </h1>
           <p className="mt-1 flex items-center gap-2 text-sm text-ink-2">
@@ -138,7 +138,7 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
             ["replies", c.replies],
           ].map(([l, v]) => (
             <div key={l as string}>
-              <div className="text-2xl font-semibold tabular-nums">{v}</div>
+              <div className="font-display text-3xl font-extrabold tabular-nums">{v}</div>
               <div className="text-[11px] text-ink-3">{l}</div>
             </div>
           ))}

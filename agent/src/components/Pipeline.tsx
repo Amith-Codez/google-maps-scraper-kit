@@ -41,7 +41,7 @@ export function Pipeline() {
   const lost = data.leads.filter((l) => l.stage === "lost");
   return (
     <div className="mx-auto max-w-7xl px-6 py-6">
-      <h1 className="text-2xl font-semibold">Pipeline</h1>
+      <h1 className="font-display text-4xl font-extrabold tracking-tight">Pipeline</h1>
       <p className="mt-1 text-sm text-ink-2">Every conversation, from pitch to interested. Updates live.</p>
       <div className="mt-5 grid gap-4 md:grid-cols-4">
         {COLUMNS.map((col) => {

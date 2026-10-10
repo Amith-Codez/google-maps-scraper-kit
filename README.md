@@ -11,6 +11,12 @@
   <img alt="No API keys" src="https://img.shields.io/badge/API%20keys-none-334155?style=flat-square">
 </p>
 
+> ### 🆕 Pitchwala: the Marketing Agent built on this kit
+> Two sentences in, clients out: finds leads with this kit, invents one specific idea per business, tests it on a
+> simulated owner, builds a demo website, pitches by email or a desi-Hindi/Telugu voice note, answers replies and pings
+> your phone. **See [`agent/README.md`](agent/README.md)**. Run: `cd agent && npm install && npm run dev`,
+> or `cd agent && docker compose up --build`.
+
 **Local Google Maps lead extraction, operated by Claude.**
 Name a business type and a city. Get back a clean, outreach-ready CSV: name, phone, email, website,
 category, address, rating, and review count. Optional Instagram, Facebook, and LinkedIn enrichment.
