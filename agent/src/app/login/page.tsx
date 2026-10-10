@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Lock, Loader2 } from "lucide-react";
+import { Wordmark } from "@/components/Logo";
 
 export default function LoginPage() {
   const [code, setCode] = useState("");
@@ -23,10 +24,7 @@ export default function LoginPage() {
   return (
     <div className="grain flex min-h-screen items-center justify-center px-6">
       <form onSubmit={submit} className="w-full max-w-sm rounded-3xl border-2 border-ink bg-white p-7 shadow-[6px_6px_0_0_#14110F]">
-        <div className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink font-display font-extrabold text-neon">P</span>
-          <span className="font-display text-2xl font-extrabold">Pitchwala</span>
-        </div>
+        <Wordmark />
         <p className="mt-3 text-sm text-ink-2">Your instance, your leads, your Gmail. Enter the passcode to continue.</p>
         <label className="mt-5 flex items-center gap-2 rounded-xl border border-line px-3 py-2.5 focus-within:border-ink">
           <Lock className="h-4 w-4 text-ink-3" />

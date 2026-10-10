@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, sessionToken } from "./lib/session";
 
 // Public: the login page, health check (Docker), the per-business demo websites and their voice-agent callback.
-const PUBLIC = [/^\/login$/, /^\/api\/login$/, /^\/api\/health$/, /^\/p\/\d+$/, /^\/api\/interest$/, /^\/api\/audio\//];
+const PUBLIC = [/^\/login$/, /^\/business$/, /^\/icon\.svg$/, /^\/api\/login$/, /^\/api\/health$/, /^\/p\/\d+$/, /^\/api\/interest$/, /^\/api\/audio\//];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

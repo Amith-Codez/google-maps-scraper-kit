@@ -23,13 +23,13 @@ export interface ArenaCtx {
 
 const ev = (e: Evidence) => JSON.stringify(e);
 
-export async function strategist(ctx: ArenaCtx, avoid: string[] = []) {
+export async function strategist(ctx: ArenaCtx, avoid: string[] = [], learned = "") {
   const system = `You are the Strategist. Invent 8 creative ideas for ONE local business, each a small product its CUSTOMERS would love, that the freelancer's service can deliver.
 ${BAR}
 How to think: start from what makes THIS place special in the evidence (e.g. a 4.6 rating from 612 reviews means a much-loved place whose fans would share it; no own website means customers can't see the menu or book before visiting; rivals nearby with websites or booking show what customers here already expect). Turn that into something delightful the customers would use or share, made with the freelancer's skill.
 Rules: every idea must close one of evidence.gaps, fix one of evidence.issues, or build on a stated strength, so there is a solid reason the owner needs it; builds_on names that gap/issue in a few words (e.g. "gap: online booking", "issue: no menu online"); no two ideas alike; never pitch "a website", "online presence", "SEO", "social media marketing", "digital marketing" or "boost sales"; don't propose what the business already has (check online_booking_link, whatsapp_link, website_kind). Titles at most 6 words. Be concrete and specific to this business type. English. Keep every field short; output compact JSON.`;
   const prompt = `Freelancer's service: ${ctx.service}
-Evidence (JSON, the only facts you may use): ${ev(ctx.evidence)}${avoid.length ? `\nThese were rejected as generic; do better: ${avoid.join("; ")}` : ""}`;
+Evidence (JSON, the only facts you may use): ${ev(ctx.evidence)}${learned ? `\n${learned}` : ""}${avoid.length ? `\nThese were rejected as generic; do better: ${avoid.join("; ")}` : ""}`;
   return ctx.llm.generate({ agent: "strategist", system, prompt, schema: StrategistOut, leadId: ctx.leadId, campaignId: ctx.campaignId, maxOutputTokens: 750, temperature: 0.9 });
 }
 

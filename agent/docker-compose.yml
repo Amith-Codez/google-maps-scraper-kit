@@ -19,7 +19,7 @@ services:
       OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
       DATABASE_PATH: data/agent.db
     ports:
-      - "3000:3000"
+      - "${WEB_PORT:-3000}:3000"
     volumes:
       - pitchwala_data:/app/data
     depends_on: [worker]

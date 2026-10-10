@@ -139,7 +139,8 @@ export default async function DemoSite({ params }: PageProps<"/p/[id]">) {
         <span className="rounded-full px-4 py-2 text-sm font-semibold" style={{ background: t.accent, color: t.accentInk }}>{page.cta}</span>
       </header>
 
-      <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 pb-16 pt-6 md:grid-cols-[1.2fr_1fr]">
+      <section className="relative mx-auto grid max-w-6xl items-center gap-10 px-5 pb-16 pt-6 md:grid-cols-[1.2fr_1fr]">
+        <div className="pointer-events-none absolute -right-10 top-0 h-72 w-72 rounded-full opacity-30 blur-3xl" style={{ background: t.accent }} />
         <div>
           {lead.rating !== null && (
             <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm" style={{ borderColor: t.line, background: t.card }}>
@@ -148,7 +149,7 @@ export default async function DemoSite({ params }: PageProps<"/p/[id]">) {
               <span style={{ color: t.soft }}>· rated by {lead.reviewCount ?? 0} people on Google</span>
             </div>
           )}
-          <h1 className="font-display mt-5 text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-6xl">{page.headline}</h1>
+          <h1 className="rise font-display mt-5 text-5xl font-extrabold leading-[1.02] tracking-tight sm:text-6xl">{page.headline}</h1>
           <p className="mt-5 max-w-xl text-lg" style={{ color: t.soft }}>{page.subheadline}</p>
           <div className="mt-7 flex flex-wrap gap-3">
             <span className="rounded-2xl px-6 py-3.5 font-semibold shadow-lg" style={{ background: t.accent, color: t.accentInk }}>{page.cta}</span>
@@ -211,6 +212,39 @@ export default async function DemoSite({ params }: PageProps<"/p/[id]">) {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {ev.top_rivals.length > 0 && (
+            <div className="mt-6 overflow-x-auto rounded-2xl bg-white/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-[#FAF8F4]/60">Quick check · you vs the 3 best-rated nearby</p>
+              <table className="mt-3 w-full text-left text-sm">
+                <thead>
+                  <tr className="text-[11px] text-[#FAF8F4]/50">
+                    <th className="py-1 pr-3 font-medium"> </th>
+                    <th className="py-1 pr-3 font-semibold text-[#C8FF3D]">{lead.name.split(" ").slice(0, 2).join(" ")}</th>
+                    {ev.top_rivals.map((r) => (
+                      <th key={r.name} className="py-1 pr-3 font-medium">{r.name.split(" ").slice(0, 2).join(" ")}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Own website", "own website", !ev.no_own_website],
+                    ["Online booking", "online booking", ev.online_booking_link],
+                    ["WhatsApp link", "WhatsApp link", ev.whatsapp_link],
+                    ["Instagram linked", "Instagram", ev.instagram_link],
+                    ["Menu online", "menu online", ev.menu_on_site],
+                  ].map(([label, key, mine]) => (
+                    <tr key={String(label)} className="border-t border-white/10">
+                      <td className="py-1.5 pr-3 text-[#FAF8F4]/70">{label}</td>
+                      <td className="py-1.5 pr-3">{mine ? "✓" : <span className="text-[#D9381E]">✗</span>}</td>
+                      {ev.top_rivals.map((r) => (
+                        <td key={r.name} className="py-1.5 pr-3">{r.why_winning.includes(String(key)) ? "✓" : <span className="text-[#FAF8F4]/30">✗</span>}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
           {ev.gaps.length > 0 && (

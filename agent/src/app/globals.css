@@ -147,7 +147,7 @@ body {
   to { transform: translateX(-50%); }
 }
 .marquee {
-  animation: marquee 40s linear infinite;
+  animation: marquee 140s linear infinite;
 }
 .sticker {
   transition: transform 0.2s ease;
@@ -158,4 +158,21 @@ body {
 .grain {
   background-image: radial-gradient(rgba(20, 17, 15, 0.06) 1px, transparent 1px);
   background-size: 18px 18px;
+}
+.marquee:hover {
+  animation-play-state: paused;
+}
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-6px) rotate(-2deg); }
+}
+.floaty {
+  animation: floaty 4s ease-in-out infinite;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise {
+  animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }

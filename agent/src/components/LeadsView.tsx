@@ -2,10 +2,11 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import useSWR from "swr";
 import { motion, AnimatePresence } from "motion/react";
-import { Loader2, Mail, MessageCircle, PhoneOff, Star } from "lucide-react";
+import { Loader2, Mail, MessageCircle, PhoneOff, Search, Star } from "lucide-react";
 
 const LeadMap = dynamic(() => import("./LeadMap"), {
   ssr: false,
@@ -101,6 +102,10 @@ export function StageChip({ stage, needsReview, working }: { stage: string; need
 export function LeadsView({ campaignId }: { campaignId: number }) {
   const { data, error } = useSWR<Data>(`/api/campaigns/${campaignId}`, fetcher, { refreshInterval: 2000 });
   const [selected, setSelected] = useState<number | null>(null);
+  const router = useRouter();
+  const { data: list } = useSWR<{ campaigns: { id: number; service: string; clients: string; found: number }[] }>("/api/campaigns", fetcher, { refreshInterval: 10000 });
+  const [filter, setFilter] = useState<"all" | "email" | "whatsapp" | "ready" | "review">("all");
+  const [q, setQ] = useState("");
 
   if (error) return <div className="p-10 text-center text-ink-2">Campaign not found.</div>;
   if (!data)
@@ -110,7 +115,23 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
       </div>
     );
 
-  const { campaign: c, leads, events } = data;
+  const { campaign: c, events } = data;
+  const allLeads = data.leads;
+  const leads = allLeads.filter((l) => {
+    if (q && !l.name.toLowerCase().includes(q.toLowerCase())) return false;
+    if (filter === "email") return l.channel === "email";
+    if (filter === "whatsapp") return l.channel === "whatsapp";
+    if (filter === "ready") return l.stage !== "found" && !l.needsReview;
+    if (filter === "review") return l.needsReview;
+    return true;
+  });
+  const FILTERS: [typeof filter, string, number][] = [
+    ["all", "All", allLeads.length],
+    ["email", "Email", allLeads.filter((l) => l.channel === "email").length],
+    ["whatsapp", "WhatsApp + voice", allLeads.filter((l) => l.channel === "whatsapp").length],
+    ["ready", "Pitch ready", allLeads.filter((l) => l.stage !== "found" && !l.needsReview).length],
+    ["review", "Needs review", allLeads.filter((l) => l.needsReview).length],
+  ];
   const working = new Set(data.working ?? []);
   const busy = c.status === "planning" || c.status === "discovering";
   const center: [number, number] = [c.lat ?? 17.3297, c.lon ?? 78.556];
@@ -120,7 +141,17 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
     <div className="mx-auto max-w-7xl px-6 py-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-wider text-ink-3">Campaign #{c.id}</p>
+          <select
+            value={c.id}
+            onChange={(e) => router.push(`/leads?c=${e.target.value}`)}
+            className="rounded-full border border-line bg-white px-3 py-1 text-xs text-ink-2 outline-none hover:border-ink"
+          >
+            {(list?.campaigns ?? [{ id: c.id, service: c.service, clients: c.clients, found: c.found }]).map((x) => (
+              <option key={x.id} value={x.id}>
+                #{x.id} · {x.clients.slice(0, 40)} ({x.found})
+              </option>
+            ))}
+          </select>
           <h1 className="font-display mt-1 text-2xl font-extrabold tracking-tight">
             {c.service} <span className="text-ink-3">→</span> {c.clients}
           </h1>
@@ -151,8 +182,23 @@ export function LeadsView({ campaignId }: { campaignId: number }) {
         </div>
 
         <div className="flex h-[560px] flex-col overflow-hidden rounded-xl border border-line bg-white/60">
-          <div className="border-b border-line px-4 py-2.5 text-xs text-ink-3">
-            {leads.length ? `${leads.length} businesses · sorted by opportunity score` : "Leads"}
+          <div className="space-y-2 border-b border-line px-3 py-2.5">
+            <label className="flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-1.5">
+              <Search className="h-3.5 w-3.5 text-ink-3" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search businesses…" className="w-full bg-transparent text-sm outline-none" />
+            </label>
+            <div className="flex flex-wrap gap-1">
+              {FILTERS.map(([id, label, count]) => (
+                <button
+                  key={id}
+                  onClick={() => setFilter(id)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] transition ${filter === id ? "bg-ink text-paper" : "bg-paper-2 text-ink-2 hover:bg-line"}`}
+                >
+                  {label} <span className="opacity-60">{count}</span>
+                </button>
+              ))}
+            </div>
+            <div className="text-[11px] text-ink-3">{leads.length} shown · sorted by opportunity score</div>
           </div>
           <div className="flex-1 overflow-y-auto">
             {!leads.length && (

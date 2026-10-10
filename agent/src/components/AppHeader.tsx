@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import useSWR from "swr";
+import { Wordmark } from "./Logo";
 
 const nav = [
   { href: "/", label: "Start" },
   { href: "/leads", label: "Leads" },
   { href: "/pipeline", label: "Pipeline" },
   { href: "/settings", label: "Settings" },
+  { href: "/business", label: "Business" },
 ];
 
 const fetcher = (u: string) => fetch(u).then((r) => r.json());
@@ -17,13 +19,12 @@ const fetcher = (u: string) => fetch(u).then((r) => r.json());
 export function AppHeader() {
   const path = usePathname();
   const { data } = useSWR<{ sentToday: number; cap: number }>(path.startsWith("/p/") ? null : "/api/stats", fetcher, { refreshInterval: 4000 });
-  if (path.startsWith("/p/") || path === "/login") return null;
+  if (path.startsWith("/p/") || path === "/login" || path.startsWith("/business")) return null;
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-paper/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-ink font-display text-sm font-extrabold text-neon">P</span>
-          <span className="font-display text-lg font-extrabold tracking-tight">Pitchwala</span>
+          <Wordmark />
           <span className="hidden rotate-[-2deg] rounded-md bg-neon px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink sm:inline">no generic pitches</span>
         </Link>
         <nav className="flex items-center gap-1 text-sm">

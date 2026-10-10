@@ -10,6 +10,7 @@ import { runPlanner } from "./core/planner";
 import { channelFor, opportunityScore, rivalStats } from "./core/score";
 import type { Place } from "./ports";
 import { writePage } from "./core/pageWriter";
+import { learningHint } from "./core/learning";
 import { classifyEmails, hostOf, readWebsite, websiteKind, type SiteFacts } from "./enrich";
 import { allowedNumbers, buildEvidence, type LeadFacts } from "./core/evidence";
 import { applyCriticRules, composer, critic, expandScores, modelClaimCheck, ownerTwin, strategist, type ArenaCtx } from "./core/arena";
@@ -269,13 +270,15 @@ export async function handleArena(leadId: number) {
   setLead(leadId, { stage: "found", needsReview: false, tokensIn: 0, tokensOut: 0, costUsd: 0 });
 
   // 1. Strategist (+ at most one retry if every idea is rejected as generic).
-  let s = await strategist(ctx);
+  const learned = learningHint();
+  let s = await strategist(ctx, [], learned);
+  if (learned) E("strategist", "learning", "Strategist was shown which ideas earned real replies so far");
   E("strategist", "ideas", `Strategist: ${s.output.ideas.length} ideas (${s.model})`, { ideas: s.output.ideas.map((i) => i.title) });
   let cr = await critic(ctx, s.output.ideas);
   let judged = applyCriticRules(s.output.ideas, expandScores(cr.output));
   if (!judged.some((j) => j.keep)) {
     E("critic", "retry", "Critic: every idea was generic; asking the Strategist again");
-    s = await strategist(ctx, judged.map((j) => j.idea.title));
+    s = await strategist(ctx, judged.map((j) => j.idea.title), learned);
     cr = await critic(ctx, s.output.ideas);
     judged = applyCriticRules(s.output.ideas, expandScores(cr.output));
   }
