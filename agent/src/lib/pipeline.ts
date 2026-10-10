@@ -10,6 +10,7 @@ import { runPlanner } from "./core/planner";
 import { channelFor, opportunityScore, rivalStats } from "./core/score";
 import type { Place } from "./ports";
 import { writePage } from "./core/pageWriter";
+import { closingPlan } from "./core/closer";
 import { learningHint } from "./core/learning";
 import { classifyEmails, hostOf, readWebsite, websiteKind, type SiteFacts } from "./enrich";
 import { allowedNumbers, buildEvidence, type LeadFacts } from "./core/evidence";
@@ -409,4 +410,33 @@ export async function handleBuildPage(leadId: number) {
   const r = await writePage(llm, { evidence, ideaTitle: idea.title, idea: idea.pitchLine, how: idea.howServiceDelivers ?? "", service: c.service, campaignId: c.id });
   setLead(leadId, { pageJson: JSON.stringify({ ...r.output, builtAt: Date.now(), model: r.model }) });
   writeEvent({ campaignId: l.campaignId, leadId, agent: "composer", type: "page", summary: `Built a demo website for ${l.name}: "${r.output.headline}"` });
+}
+
+// ---------------- Closing blueprint for interested leads ----------------
+export async function handleClosingPlan(leadId: number) {
+  const l = lead(leadId);
+  const c = campaign(l.campaignId);
+  const db = getDb();
+  const idea = db.select().from(schema.ideas).where(eq(schema.ideas.leadId, leadId)).all().find((i) => i.verdict === "chosen");
+  const msgs = db.select().from(schema.messages).where(eq(schema.messages.leadId, leadId)).all();
+  const pitch = msgs.find((m) => m.kind === "initial" && m.direction === "out");
+  const conversation = msgs
+    .filter((m) => m.kind === "reply" || m.kind === "preview")
+    .map((m) => `${m.direction === "in" ? "Owner" : "Us"}: ${(m.body ?? "").slice(0, 300)}`)
+    .join("\n");
+  const all = db.select().from(schema.leads).where(eq(schema.leads.campaignId, l.campaignId)).all();
+  const evidence = buildEvidence(leadFacts(l), all.map(leadFacts));
+  const twin = idea?.twinVerdictJson ? (JSON.parse(idea.twinVerdictJson) as { first?: { objection?: string } }).first?.objection ?? "" : "";
+  const r = await closingPlan(llm, {
+    service: c.service,
+    senderName: getEnv().SENDER_NAME,
+    evidence,
+    idea: idea ? `${idea.title}: ${idea.pitchLine}` : "",
+    pitch: pitch?.body ?? "",
+    conversation: conversation || "(interested via the voice agent or a YES reply)",
+    objection: twin,
+    campaignId: c.id,
+  });
+  getRaw().prepare(`UPDATE leads SET closing_json = ? WHERE id = ?`).run(JSON.stringify({ ...r.output, builtAt: Date.now(), model: r.model }), leadId);
+  writeEvent({ campaignId: l.campaignId, leadId, agent: "composer", type: "closing", summary: `Closer: client-capture blueprint ready · next: ${r.output.summary.slice(0, 90)}` });
 }

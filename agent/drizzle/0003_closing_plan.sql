@@ -1,0 +1,1 @@
+ALTER TABLE `leads` ADD `closing_json` text;

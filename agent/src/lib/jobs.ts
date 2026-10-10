@@ -12,6 +12,7 @@ export type JobType =
   | "voice_note"
   | "notify"
   | "page"
+  | "closing"
   | "rerun_idea";
 
 export interface JobRow {

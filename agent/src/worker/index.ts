@@ -7,12 +7,12 @@ import { getEnv } from "../lib/env";
 import { log } from "../lib/log";
 import { getDb, schema } from "../lib/db";
 import { eq } from "drizzle-orm";
-import { claimNext, completeJob, failJob, recoverStuckJobs, type JobRow, type JobType } from "../lib/jobs";
+import { claimNext, completeJob, enqueue, failJob, recoverStuckJobs, type JobRow, type JobType } from "../lib/jobs";
 import { writeEvent } from "../lib/events";
 import { runHealthChecks } from "../lib/health";
 import { setSetting } from "../lib/settings";
 import { BudgetExceededError } from "../lib/llm";
-import { handleArena, handleBuildPage, handleDiscover, handleEnrich, handlePlan } from "../lib/pipeline";
+import { handleArena, handleBuildPage, handleClosingPlan, handleDiscover, handleEnrich, handlePlan } from "../lib/pipeline";
 import { handleSend, requestFollowUpSend, setOnSent } from "../lib/outbox";
 import { handleFollowUp, handleTriage, runInboxWatcher, scheduleFollowUp } from "../lib/replies";
 import { handleVoiceNote } from "../lib/voice";
@@ -49,6 +49,10 @@ const handlers: Partial<Record<JobType, Handler>> = {
     if (!lead) return;
     await telegram.text(`🔥 ${lead.name} is interested (Talk to Pitchwala voice call)\n\n"${String(payload.summary)}"\n\nNext step: call them at the time they mentioned.${lead.phone ? `\nPhone: ${lead.phone}` : ""}`);
     writeEvent({ campaignId: lead.campaignId, leadId: lead.id, agent: "notifier", type: "ping", summary: "Pinged you on Telegram: interested via voice" });
+    enqueue("closing", `closing:${lead.id}`, { leadId: lead.id }, { leadId: lead.id, campaignId: lead.campaignId, priority: 2 });
+  },
+  async closing(_job, payload) {
+    await handleClosingPlan(Number(payload.leadId));
   },
   async page(_job, payload) {
     await handleBuildPage(Number(payload.leadId));

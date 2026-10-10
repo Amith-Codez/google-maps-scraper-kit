@@ -210,6 +210,7 @@ export async function handleTriage(messageId: number) {
     case "interested": {
       if (answer) await replyInThread(theirs, ours, answer, true);
       getRaw().prepare(`UPDATE leads SET stage = 'interested' WHERE id = ?`).run(lead.id);
+      enqueue("closing", `closing:${lead.id}`, { leadId: lead.id }, { leadId: lead.id, campaignId: lead.campaignId, priority: 2 });
       const via = await notify(
         `🔥 ${who} is interested!\n\n"${quote}"\n\nNext step: ${next || "send the 2-minute demo"}\nReply to: ${theirs.fromAddr}`,
         quote,

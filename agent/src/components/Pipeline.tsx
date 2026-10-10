@@ -81,7 +81,10 @@ export function Pipeline() {
   ];
   return (
     <div className="mx-auto max-w-7xl px-6 py-6">
-      <h1 className="font-display text-4xl font-extrabold tracking-tight">Pipeline</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-4xl font-extrabold tracking-tight">Pipeline</h1>
+        <Link href="/clients" className="rounded-2xl border-2 border-ink bg-neon px-4 py-2 font-display text-sm font-bold shadow-[3px_3px_0_0_#14110F]">Export clients + closing plans →</Link>
+      </div>
       <p className="mt-1 text-sm text-ink-2">Every business moves left to right: <b>pitch ready → contacted → replied → interested</b>. Each column tells you what it means and what to do. Updates live.</p>
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="rounded-3xl border-2 border-ink bg-white p-5 shadow-[5px_5px_0_0_#14110F]">

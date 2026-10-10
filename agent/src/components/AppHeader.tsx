@@ -9,6 +9,7 @@ const nav = [
   { href: "/", label: "Start" },
   { href: "/leads", label: "Leads" },
   { href: "/pipeline", label: "Pipeline" },
+  { href: "/clients", label: "Clients" },
   { href: "/settings", label: "Settings" },
   { href: "/business", label: "Business" },
 ];
@@ -21,7 +22,7 @@ export function AppHeader() {
   const { data } = useSWR<{ sentToday: number; cap: number }>(path.startsWith("/p/") ? null : "/api/stats", fetcher, { refreshInterval: 4000 });
   if (path.startsWith("/p/") || path === "/login" || path.startsWith("/business")) return null;
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-paper/80 backdrop-blur-md">
+    <header className="print:hidden sticky top-0 z-40 border-b border-line bg-paper/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2">
           <Wordmark />
