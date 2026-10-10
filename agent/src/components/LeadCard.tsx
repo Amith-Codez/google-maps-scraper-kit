@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
 import { motion } from "motion/react";
-import { ArrowLeft, Check, Loader2, Mail, MessageCircle, RefreshCw, Send, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Mail, MessageCircle, Mic, RefreshCw, Send, Sparkles, Star } from "lucide-react";
 import { ChannelChip } from "./LeadsView";
 
 interface Idea {
@@ -32,6 +32,7 @@ interface Msg {
   whyNeeded: string | null;
   principlesJson: string | null;
   voiceScript: string | null;
+  audioPath: string | null;
   status: string;
   sentAt: number | null;
   isPreview: boolean;
@@ -241,6 +242,42 @@ function RivalsPanel({ evidence }: { evidence: Record<string, unknown> }) {
   );
 }
 
+const VOICE_LANGS = [
+  { id: "hi", label: "Hindi (desi)" },
+  { id: "te", label: "Telugu" },
+  { id: "en", label: "English" },
+];
+
+/** AI-made voice notes in the owner's language (no business name or ratings), sent to your Telegram to forward. */
+function VoiceNotes({ notes, working, onMake, busy }: { leadId: number; notes: Msg[]; working: boolean; onMake: (lang: string) => void; busy: boolean }) {
+  const latest = notes[0];
+  return (
+    <div className="mt-3 rounded-lg bg-paper-2 px-3 py-2.5">
+      <p className="text-[11px] uppercase tracking-wider text-ink-3">Voice note for WhatsApp · in the owner's language</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {VOICE_LANGS.map((l) => (
+          <button
+            key={l.id}
+            disabled={busy || working}
+            onClick={() => onMake(l.id)}
+            className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white px-2.5 py-1 text-xs hover:border-ink disabled:opacity-50"
+          >
+            <Mic className="h-3 w-3" /> {l.label}
+          </button>
+        ))}
+        {working && (
+          <span className="inline-flex items-center gap-1 text-xs text-ink-3">
+            <Loader2 className="h-3 w-3 animate-spin" /> writing + speaking…
+          </span>
+        )}
+      </div>
+      {latest?.voiceScript && <p className="mt-2 text-xs leading-relaxed text-ink-2">{latest.voiceScript}</p>}
+      {latest?.audioPath && <audio key={latest.audioPath} controls src={`/api/audio/${latest.audioPath}`} className="mt-2 h-9 w-full" />}
+      <p className="mt-1 text-[10.5px] text-ink-3">Never sent automatically: it goes to your Telegram with the WhatsApp draft, and you forward it.</p>
+    </div>
+  );
+}
+
 export function LeadCard({ leadId }: { leadId: number }) {
   const { data, mutate } = useSWR<Data>(`/api/leads/${leadId}`, fetcher, { refreshInterval: 2000 });
   const [busy, setBusy] = useState(false);
@@ -412,12 +449,7 @@ export function LeadCard({ leadId }: { leadId: number }) {
                 </div>
               )}
               {twin?.final && <TwinBubble label="after rewrite" t={twin.final} />}
-              {draft.voiceScript && (
-                <div className="mt-3 rounded-lg bg-paper-2 px-3 py-2">
-                  <p className="text-[11px] uppercase tracking-wider text-ink-3">Voice note script (no business name, no ratings)</p>
-                  <p className="mt-1 text-xs text-ink-2">{draft.voiceScript}</p>
-                </div>
-              )}
+              <VoiceNotes leadId={leadId} notes={messages.filter((m) => m.kind === "draft" && m.channel === "whatsapp")} working={jobs.some((j) => j.type === "voice_note" && (j.status === "queued" || j.status === "running"))} onMake={(lang) => post(`/api/leads/${leadId}/voice`, { lang }, "Making the voice note… it will arrive on your Telegram")} busy={busy} />
               {sentAt && (
                 <p className="mt-4 rounded-lg bg-paper-2 px-3 py-2 text-sm">
                   Contacted · {sentAt} <span className="text-ink-3">to {draft.toAddr}</span>

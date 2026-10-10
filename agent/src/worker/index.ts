@@ -15,6 +15,7 @@ import { BudgetExceededError } from "../lib/llm";
 import { handleArena, handleDiscover, handleEnrich, handlePlan } from "../lib/pipeline";
 import { handleSend, requestFollowUpSend, setOnSent } from "../lib/outbox";
 import { handleFollowUp, handleTriage, runInboxWatcher, scheduleFollowUp } from "../lib/replies";
+import { handleVoiceNote } from "../lib/voice";
 
 type Handler = (job: JobRow, payload: Record<string, unknown>) => Promise<void>;
 
@@ -48,6 +49,9 @@ const handlers: Partial<Record<JobType, Handler>> = {
     if (!lead) return;
     await telegram.text(`🔥 ${lead.name} is interested (Talk to Pitchwala voice call)\n\n"${String(payload.summary)}"\n\nNext step: call them at the time they mentioned.${lead.phone ? `\nPhone: ${lead.phone}` : ""}`);
     writeEvent({ campaignId: lead.campaignId, leadId: lead.id, agent: "notifier", type: "ping", summary: "Pinged you on Telegram: interested via voice" });
+  },
+  async voice_note(_job, payload) {
+    await handleVoiceNote(Number(payload.leadId), (payload.lang as "en" | "hi" | "te") ?? "en");
   },
   async follow_up(_job, payload) {
     await handleFollowUp(Number(payload.leadId), requestFollowUpSend);

@@ -4,6 +4,7 @@ import type { Voice, HealthResult } from "../ports";
 const BASE = "https://api.elevenlabs.io/v1";
 // A stock multilingual voice used when ELEVENLABS_VOICE_ID isn't set.
 const DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb";
+// eleven_v3 takes ISO 639-1 codes; our language ids are already en / hi / te.
 
 export const elevenlabs: Voice = {
   async speak(text: string, opts: { language?: string } = {}) {
