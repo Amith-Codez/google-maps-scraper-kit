@@ -162,14 +162,15 @@ function ClientCard({ r, onBuild, building }: { r: Row; onBuild: (id: number) =>
           ))}
         </div>
       )}
-      {r.group === "interested" &&
-        (r.closing ? (
-          <Blueprint c={r.closing} />
-        ) : (
+      {r.closing ? (
+        <Blueprint c={r.closing} />
+      ) : (
+        (r.group === "interested" || r.group === "conversation") && (
           <button onClick={() => onBuild(r.id)} disabled={building} className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-ink px-4 py-2.5 font-display font-bold text-paper disabled:opacity-60 print:hidden">
             {building ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-neon" />} Build the client-capture blueprint
           </button>
-        ))}
+        )
+      )}
       {r.group === "interested" && !lastOwner && <p className="mt-2 text-xs text-ink-3">Interested via the voice agent.</p>}
     </motion.div>
   );
