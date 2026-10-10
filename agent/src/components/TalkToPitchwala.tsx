@@ -5,7 +5,6 @@ import { Mic, MicOff } from "lucide-react";
 
 // ElevenLabs Agents web widget (BUILD_PLAN §8b). Pinned version; loaded only when the user opens it.
 const WIDGET_SRC = "https://unpkg.com/@elevenlabs/convai-widget-embed@0.18.2/dist/index.js";
-const AGENT_ID = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID ?? "";
 
 let loader: Promise<void> | null = null;
 function loadWidget(): Promise<void> {
@@ -29,15 +28,18 @@ function loadWidget(): Promise<void> {
  * Never the business name, rating or any other Maps data (E48).
  */
 export function TalkToPitchwala({
+  agentId: AGENT_ID,
   leadId,
   vars,
   disabled,
 }: {
+  agentId: string;
   leadId: number;
   vars: { sender_name: string; idea_title: string; idea_pitch: string; service: string };
   disabled: boolean;
 }) {
   const [state, setState] = useState<"idle" | "loading" | "ready" | "unavailable">(AGENT_ID ? "idle" : "unavailable");
+  useEffect(() => setState(AGENT_ID ? "idle" : "unavailable"), [AGENT_ID]);
   const [note, setNote] = useState<string | null>(null);
   const host = useRef<HTMLDivElement>(null);
 

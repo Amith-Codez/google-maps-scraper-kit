@@ -12,7 +12,7 @@ import { telegram } from "./adapters/telegram";
 import { stripVoiceScript } from "./core/guards";
 import { writeVoiceScript, VOICE_LANGS, type VoiceLang } from "./core/voiceWriter";
 
-export const audioDir = () => path.resolve(process.cwd(), path.dirname(getEnv().DATABASE_PATH), "audio");
+export const audioDir = () => path.resolve(/* turbopackIgnore: true */ process.cwd(), path.dirname(getEnv().DATABASE_PATH), "audio");
 
 export function waLink(phone: string | null, text: string): string | null {
   const d = (phone ?? "").replace(/\D/g, "").replace(/^0/, "");

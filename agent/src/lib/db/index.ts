@@ -11,14 +11,14 @@ export type DB = BetterSQLite3Database<typeof schema>;
 const g = globalThis as unknown as { __pitchwalaDb?: { db: DB; raw: Database.Database } };
 
 function open() {
-  const file = path.resolve(process.cwd(), process.env.DATABASE_PATH ?? "data/agent.db");
+  const file = path.resolve(/* turbopackIgnore: true */ process.cwd(), process.env.DATABASE_PATH ?? "data/agent.db");
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const raw = new Database(file);
   raw.pragma("journal_mode = WAL");
   raw.pragma("busy_timeout = 5000");
   raw.pragma("foreign_keys = ON");
   const db = drizzle(raw, { schema });
-  migrate(db, { migrationsFolder: path.resolve(process.cwd(), "drizzle") });
+  migrate(db, { migrationsFolder: path.resolve(/* turbopackIgnore: true */ process.cwd(), "drizzle") });
   return { db, raw };
 }
 

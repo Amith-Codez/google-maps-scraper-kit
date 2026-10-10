@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import useSWR from "swr";
 import { motion } from "motion/react";
-import { ArrowLeft, Check, Loader2, Mail, MessageCircle, Mic, RefreshCw, Send, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Check, Globe, Loader2, Mail, MessageCircle, Mic, RefreshCw, Send, Sparkles, Star } from "lucide-react";
 import { ChannelChip } from "./LeadsView";
+import { TalkToPitchwala } from "./TalkToPitchwala";
+import { TeamRoom } from "./TeamRoom";
 
 interface Idea {
   id: number;
@@ -43,6 +45,9 @@ interface Twin {
   what_would_change_my_mind: string;
 }
 interface Data {
+  activeModel: { provider: string; model: string } | null;
+  agentId: string;
+  senderName: string;
   lead: {
     id: number;
     campaignId: number;
@@ -66,6 +71,7 @@ interface Data {
     costUsd: number;
     followUpAt: number | null;
     contactedAt: number | null;
+    pageJson: string | null;
   };
   site: { ok: boolean; error?: string; booking: string | null; whatsapp: string | null; instagram: string | null } | null;
   campaign: { id: number; service: string; language: string };
@@ -282,6 +288,7 @@ export function LeadCard({ leadId }: { leadId: number }) {
   const { data, mutate } = useSWR<Data>(`/api/leads/${leadId}`, fetcher, { refreshInterval: 2000 });
   const [busy, setBusy] = useState(false);
   const [previewTo, setPreviewTo] = useState("");
+  const [view, setView] = useState<"chat" | "scores">("chat");
   const [note, setNote] = useState<string | null>(null);
 
   if (!data || !data.lead)
@@ -328,7 +335,7 @@ export function LeadCard({ leadId }: { leadId: number }) {
       </Link>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">{l.name}</h1>
+          <h1 className="font-display text-4xl font-extrabold tracking-tight">{l.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-ink-2">
             {l.rating !== null && (
               <span className="inline-flex items-center gap-1">
@@ -349,6 +356,31 @@ export function LeadCard({ leadId }: { leadId: number }) {
           </div>
         </div>
       </div>
+
+      {chosen && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-3xl border-2 border-ink bg-neon/40 px-5 py-4 shadow-[5px_5px_0_0_#14110F]">
+          <div>
+            <div className="font-display text-lg font-extrabold">We built it before we asked.</div>
+            <p className="text-sm text-ink-2">A live demo website for {l.name}, with their real rating, location and the idea working on it.</p>
+          </div>
+          {l.pageJson ? (
+            <div className="flex gap-2">
+              <a href={`/p/${l.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-2xl bg-ink px-4 py-2.5 font-display font-bold text-paper">
+                <Globe className="h-4 w-4" /> Open their website <ArrowUpRight className="h-4 w-4" />
+              </a>
+              <button onClick={() => post(`/api/leads/${leadId}/page`, {}, "Rebuilding the demo website…")} disabled={busy} className="rounded-2xl border border-ink px-3 py-2.5 text-sm">
+                Rebuild
+              </button>
+            </div>
+          ) : jobs.some((j) => j.type === "page" && (j.status === "queued" || j.status === "running")) ? (
+            <span className="inline-flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Building their website…</span>
+          ) : (
+            <button onClick={() => post(`/api/leads/${leadId}/page`, {}, "Building their demo website…")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-2xl bg-ink px-4 py-2.5 font-display font-bold text-paper">
+              <Globe className="h-4 w-4" /> Build their demo website
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1.35fr_1.15fr]">
         {/* Evidence */}
@@ -371,7 +403,7 @@ export function LeadCard({ leadId }: { leadId: number }) {
 
         {/* Idea Arena */}
         <Section
-          title="Idea Arena"
+          title="Idea Arena · 3 AI agents argue"
           right={
             ideas.length > 0 && (
               <span className="font-mono text-[11px] text-ink-3">
@@ -397,12 +429,25 @@ export function LeadCard({ leadId }: { leadId: number }) {
             </div>
           ) : (
             <>
-              <ul className="space-y-2">
-                {ideas.map((idea, i) => (
-                  <IdeaRow key={idea.id} idea={idea} i={i} />
+              <div className="mb-3 inline-flex rounded-full bg-paper-2 p-0.5 text-xs">
+                {(["chat", "scores"] as const).map((v) => (
+                  <button key={v} onClick={() => setView(v)} className={`rounded-full px-3 py-1 ${view === v ? "bg-ink text-paper" : "text-ink-2"}`}>
+                    {v === "chat" ? "Team chat" : "Scorecard"}
+                  </button>
                 ))}
-              </ul>
-              {twin?.first && <TwinBubble label="first read" t={twin.first} />}
+              </div>
+              {view === "chat" ? (
+                <TeamRoom name={l.name} ideas={ideas} first={twin?.first} final={twin?.final} why={draft?.whyNeeded} />
+              ) : (
+                <>
+                  <ul className="space-y-2">
+                    {ideas.map((idea, i) => (
+                      <IdeaRow key={idea.id} idea={idea} i={i} />
+                    ))}
+                  </ul>
+                  {twin?.first && <TwinBubble label="first read" t={twin.first} />}
+                </>
+              )}
             </>
           )}
         </Section>
@@ -414,8 +459,8 @@ export function LeadCard({ leadId }: { leadId: number }) {
             draft &&
             !working &&
             l.stage === "ready" && (
-              <button onClick={runArena} disabled={busy} className="inline-flex items-center gap-1 text-[11px] text-ink-3 hover:text-ink">
-                <RefreshCw className="h-3 w-3" /> regenerate
+              <button onClick={runArena} disabled={busy} className="inline-flex items-center gap-1 text-[11px] text-ink-3 hover:text-ink" title="Reruns the whole Arena on the model selected in Settings">
+                <RefreshCw className="h-3 w-3" /> rerun with {data.activeModel?.provider ?? "model"}
               </button>
             )
           }
@@ -478,6 +523,14 @@ export function LeadCard({ leadId }: { leadId: number }) {
                     <MessageCircle className="h-4 w-4" /> WhatsApp draft
                   </a>
                 )}
+              </div>
+              <div className="mt-3">
+                <TalkToPitchwala
+                  agentId={data.agentId}
+                  leadId={leadId}
+                  disabled={!chosen || !draft}
+                  vars={{ sender_name: data.senderName, idea_title: chosen?.title ?? "", idea_pitch: chosen?.pitchLine ?? "", service: data.campaign.service }}
+                />
               </div>
               <form
                 className="mt-3 flex gap-2"

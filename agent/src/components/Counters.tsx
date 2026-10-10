@@ -51,8 +51,8 @@ export function Counters() {
     <div className="w-full">
       <div className="grid grid-cols-3 gap-3">
         {items.map((i) => (
-          <div key={i.label} className="rounded-xl border border-line bg-white/60 px-4 py-3 text-center">
-            <div className="text-3xl font-semibold">
+          <div key={i.label} className="rounded-2xl border border-line bg-white/80 px-4 py-3 text-center">
+            <div className="font-display text-4xl font-extrabold">
               <Tick value={i.value} />
             </div>
             <div className="mt-1 text-xs text-ink-3">{i.label}</div>

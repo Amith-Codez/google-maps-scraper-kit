@@ -37,12 +37,34 @@ export function StartForm() {
     }
   }
 
+  const EXAMPLES: [string, string][] = [
+    ["I build websites for local businesses: menus, pre-orders and booking.", "Cafés and restaurants in Vanasthalipuram, Hyderabad."],
+    ["I design logos, menus and posters.", "Bakeries and sweet shops in Dilsukhnagar, Hyderabad."],
+    ["I build booking websites.", "Coaching centres and gyms in LB Nagar, Hyderabad."],
+  ];
+
   const field =
     "w-full resize-none rounded-lg border border-line bg-white px-4 py-3 text-base outline-none transition focus:border-ink focus:ring-2 focus:ring-chilli/15";
 
   return (
-    <form onSubmit={submit} className="w-full rounded-2xl border border-line bg-white/70 p-6 shadow-[0_1px_0_rgba(20,17,15,0.04)]">
-      <label className="block text-sm font-medium text-ink-2">1 · What's your service?</label>
+    <form onSubmit={submit} className="w-full rounded-3xl border-2 border-ink bg-white p-6 shadow-[6px_6px_0_0_#14110F]">
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-ink-3">Try:</span>
+        {EXAMPLES.map(([sv, cl]) => (
+          <button
+            type="button"
+            key={sv}
+            onClick={() => {
+              setService(sv);
+              setClients(cl);
+            }}
+            className="rounded-full border border-line bg-paper px-2.5 py-1 text-[11px] text-ink-2 transition hover:border-ink hover:text-ink"
+          >
+            {cl.split(" in ")[0]}
+          </button>
+        ))}
+      </div>
+      <label className="block font-display text-sm font-bold">1 · What do you sell?</label>
       <textarea
         className={`${field} mt-2`}
         rows={2}
@@ -51,7 +73,7 @@ export function StartForm() {
         onChange={(e) => setService(e.target.value)}
         required
       />
-      <label className="mt-5 block text-sm font-medium text-ink-2">2 · Who are your clients?</label>
+      <label className="mt-5 block font-display text-sm font-bold">2 · Who do you sell to?</label>
       <textarea
         className={`${field} mt-2`}
         rows={2}
@@ -76,10 +98,10 @@ export function StartForm() {
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex items-center gap-2 rounded-lg bg-chilli px-5 py-2.5 font-medium text-white transition hover:bg-[#c22f17] disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-2xl bg-chilli px-6 py-3 font-display font-bold text-white transition hover:-translate-y-0.5 hover:shadow-[3px_3px_0_0_#14110F] disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-          Find my clients
+          {busy ? "Waking the agents…" : "Find my clients"}
         </button>
       </div>
       {error && <p className="mt-3 text-sm text-chilli">{error}</p>}

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(_req: Request, ctx: RouteContext<"/api/audio/[file]">) {
   const name = path.basename((await ctx.params).file);
   if (!/^lead-\d+-(en|hi|te)-\d+\.mp3$/.test(name)) return new Response("not found", { status: 404 });
-  const file = path.join(audioDir(), name);
+  const file = path.join(/* turbopackIgnore: true */ audioDir(), name);
   if (!fs.existsSync(file)) return new Response("not found", { status: 404 });
   return new Response(fs.readFileSync(file), { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
 }

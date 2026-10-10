@@ -12,6 +12,8 @@ interface S {
   opt_out_text: string;
   language: string;
   auto_send: string;
+  voice_id: string;
+  agent_id: string;
   sentToday: number;
   providers: { id: string; label: string; defaultModel: string; configured: boolean; local: boolean }[];
 }
@@ -131,6 +133,29 @@ export function SettingsForm() {
             className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2"
           />
         </label>
+      </Card>
+
+      <Card title="Voice (ElevenLabs)" hint="Paste your own cloned voice (or an Indian voice from the Voice Library) and the Talk to Pitchwala agent ID. Applies instantly.">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm">
+            Voice ID for voice notes
+            <input
+              defaultValue={data.voice_id}
+              placeholder="stock voice"
+              onBlur={(e) => e.target.value !== data.voice_id && save({ voice_id: e.target.value.trim() }, "Voice")}
+              className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-mono text-xs"
+            />
+          </label>
+          <label className="text-sm">
+            Voice agent ID (Talk to Pitchwala)
+            <input
+              defaultValue={data.agent_id}
+              placeholder="not set"
+              onBlur={(e) => e.target.value !== data.agent_id && save({ agent_id: e.target.value.trim() }, "Voice agent")}
+              className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 font-mono text-xs"
+            />
+          </label>
+        </div>
       </Card>
 
       <Card title="Default language" hint="Messages and voice notes; can be changed per campaign on the Start screen.">

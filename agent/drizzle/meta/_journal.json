@@ -15,6 +15,13 @@
       "when": 1791615535989,
       "tag": "0001_why_needed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791619866333,
+      "tag": "0002_demo_page",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,9 @@ import { getDb, schema } from "@/lib/db";
 import { eventsForLead } from "@/lib/events";
 import { buildEvidence, type LeadFacts } from "@/lib/core/evidence";
 import { getRaw } from "@/lib/db";
+import { getSetting } from "@/lib/settings";
+import { activeModel, providerChain } from "@/lib/llm";
+import { getEnv } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +30,11 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/leads/[id]">) {
     .prepare(`SELECT type, status, error FROM jobs WHERE lead_id = ? ORDER BY id DESC LIMIT 10`)
     .all(id) as { type: string; status: string; error: string | null }[];
   const site = JSON.parse(lead.evidenceJson ?? "{}").site ?? null;
+  const p = providerChain()[0];
   return NextResponse.json({
+    activeModel: p ? { provider: p.label, model: activeModel(p) } : null,
+    agentId: getSetting("agent_id") || process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || "",
+    senderName: getEnv().SENDER_NAME,
     lead: { ...lead, evidenceJson: undefined },
     site,
     campaign: campaign && { id: campaign.id, service: campaign.service, language: campaign.language },

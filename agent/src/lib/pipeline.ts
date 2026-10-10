@@ -9,6 +9,7 @@ import { geocode } from "./geo";
 import { runPlanner } from "./core/planner";
 import { channelFor, opportunityScore, rivalStats } from "./core/score";
 import type { Place } from "./ports";
+import { writePage } from "./core/pageWriter";
 import { classifyEmails, hostOf, readWebsite, websiteKind, type SiteFacts } from "./enrich";
 import { allowedNumbers, buildEvidence, type LeadFacts } from "./core/evidence";
 import { applyCriticRules, composer, critic, expandScores, modelClaimCheck, ownerTwin, strategist, type ArenaCtx } from "./core/arena";
@@ -382,4 +383,18 @@ export async function handleArena(leadId: number) {
   const t = lead(leadId);
   E("system", "ready", `Pitch ready · ${t.tokensIn + t.tokensOut} tokens · $${t.costUsd.toFixed(4)}`);
   if (t.channel === "email" && !needsReview && getSetting("auto_send") === "on") requestSend(leadId, { auto: true });
+}
+// ---------------- Demo website per lead ----------------
+
+export async function handleBuildPage(leadId: number) {
+  const l = lead(leadId);
+  const c = campaign(l.campaignId);
+  const db = getDb();
+  const idea = db.select().from(schema.ideas).where(eq(schema.ideas.leadId, leadId)).all().find((i) => i.verdict === "chosen");
+  if (!idea) throw new Error("no chosen idea yet");
+  const all = db.select().from(schema.leads).where(eq(schema.leads.campaignId, l.campaignId)).all();
+  const evidence = buildEvidence(leadFacts(l), all.map(leadFacts));
+  const r = await writePage(llm, { evidence, ideaTitle: idea.title, idea: idea.pitchLine, how: idea.howServiceDelivers ?? "", service: c.service, campaignId: c.id });
+  setLead(leadId, { pageJson: JSON.stringify({ ...r.output, builtAt: Date.now(), model: r.model }) });
+  writeEvent({ campaignId: l.campaignId, leadId, agent: "composer", type: "page", summary: `Built a demo website for ${l.name}: "${r.output.headline}"` });
 }

@@ -17,6 +17,8 @@ function snapshot() {
     opt_out_text: getSetting("opt_out_text"),
     language: getSetting("language"),
     auto_send: getSetting("auto_send"),
+    voice_id: getSetting("voice_id") ?? "",
+    agent_id: getSetting("agent_id") || process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID || "",
     sentToday: sentToday(),
     providers: PROVIDER_IDS.map((id) => ({
       id,
@@ -40,6 +42,8 @@ const Patch = z.object({
   opt_out_text: z.string().min(8).max(120).refine((s) => /stop/i.test(s), "must tell people how to stop (e.g. Reply STOP)").optional(),
   language: z.enum(["en", "hi", "te"]).optional(),
   auto_send: z.enum(["on", "off"]).optional(),
+  voice_id: z.string().trim().max(64).regex(/^[A-Za-z0-9]*$/, "voice ID is letters and digits").optional(),
+  agent_id: z.string().trim().max(80).regex(/^[A-Za-z0-9_-]*$/, "agent ID looks wrong").optional(),
 });
 
 // Live settings: the worker reads them on its next model call, no restart needed.
@@ -57,5 +61,7 @@ export async function POST(req: Request) {
   if (p.opt_out_text !== undefined) setSetting("opt_out_text", p.opt_out_text);
   if (p.language !== undefined) setSetting("language", p.language);
   if (p.auto_send !== undefined) setSetting("auto_send", p.auto_send);
+  if (p.voice_id !== undefined) setSetting("voice_id", p.voice_id);
+  if (p.agent_id !== undefined) setSetting("agent_id", p.agent_id);
   return NextResponse.json(snapshot());
 }

@@ -15,6 +15,8 @@
   --go: #2f7d4f;
   --go-soft: #e2f1e7;
   --warn: #b7791f;
+  --neon: #c8ff3d;
+  --lilac: #e9e3ff;
   --background: var(--paper);
   --foreground: var(--ink);
   --card: #ffffff;
@@ -61,6 +63,9 @@
   --color-go: var(--go);
   --color-go-soft: var(--go-soft);
   --color-warn: var(--warn);
+  --color-neon: var(--neon);
+  --color-lilac: var(--lilac);
+  --font-display: var(--font-display-face);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
@@ -129,4 +134,28 @@ body {
   html {
     @apply font-sans;
   }
+}
+/* Gen-Z layer: display type, highlighter, marquee, sticker wobble */
+.font-display {
+  font-family: var(--font-display-face), var(--font-geist-sans), sans-serif;
+}
+.highlight {
+  background: linear-gradient(transparent 58%, var(--neon) 58%, var(--neon) 92%, transparent 92%);
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee {
+  animation: marquee 40s linear infinite;
+}
+.sticker {
+  transition: transform 0.2s ease;
+}
+.sticker:hover {
+  transform: rotate(-3deg) scale(1.05);
+}
+.grain {
+  background-image: radial-gradient(rgba(20, 17, 15, 0.06) 1px, transparent 1px);
+  background-size: 18px 18px;
 }

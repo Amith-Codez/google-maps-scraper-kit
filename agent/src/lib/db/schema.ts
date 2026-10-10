@@ -52,6 +52,7 @@ export const leads = sqliteTable(
     tokensOut: integer("tokens_out").notNull().default(0),
     costUsd: real("cost_usd").notNull().default(0),
     followUpAt: integer("follow_up_at"),
+    pageJson: text("page_json"),
     contactedAt: integer("contacted_at"),
     createdAt: integer("created_at").notNull().$defaultFn(now),
   },

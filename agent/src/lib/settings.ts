@@ -10,6 +10,9 @@ export const DEFAULT_SETTINGS = {
   language: "en",
   // Auto-send ready email pitches (off until the user approves real sends).
   auto_send: "off",
+  // ElevenLabs voice (e.g. your own cloned voice) and the public voice-agent ID; override the env values live.
+  voice_id: "",
+  agent_id: "",
 } as const;
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS | "health" | "worker_heartbeat" | "telegram_chat_id" | "inbox_last_uid" | "inbox_status";

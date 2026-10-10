@@ -47,6 +47,7 @@ export async function writeVoiceScript(
   const system = `You write a 20-second WhatsApp voice note from ${input.senderName}, a local freelancer (${input.service}), to a business owner.
 Language and style: ${L.style}
 Content, in this order: greet; say this is an AI-made voice note from ${input.senderName}; the one idea and what their customers get; why it helps (one line); offer a free 2-minute demo, they just reply on WhatsApp.
+Sound like a real person talking on WhatsApp, not someone reading: 1-2 natural fillers (Hindi: "achha", "dekhiye na", "matlab", "haan ji"; Telugu: "andi", "chudandi", "ante"; English: "so", "honestly"), short broken sentences, "..." for small pauses, and 1-2 ElevenLabs audio tags in square brackets such as [warmly], [smiles], [excited], [laughs softly] (never more than 3).
 Hard rules: at most 55 words. NO business name, NO ratings, NO review counts, NO addresses, NO prices, NO dates. Warm, not salesy.`;
   const prompt = `Idea: ${input.ideaTitle}: ${input.idea}\nWhy it helps: ${input.why}`;
   const first = await llm.generate({ agent: "voice", system, prompt, schema: VoiceOut, campaignId: input.campaignId, maxOutputTokens: 350, temperature: 0.7 });

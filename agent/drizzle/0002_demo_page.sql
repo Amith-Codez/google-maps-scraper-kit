@@ -1,0 +1,1 @@
+ALTER TABLE `leads` ADD `page_json` text;

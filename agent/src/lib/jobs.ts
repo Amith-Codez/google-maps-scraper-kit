@@ -11,6 +11,7 @@ export type JobType =
   | "triage"
   | "voice_note"
   | "notify"
+  | "page"
   | "rerun_idea";
 
 export interface JobRow {

@@ -1,5 +1,6 @@
 import { getEnv } from "../env";
 import type { Voice, HealthResult } from "../ports";
+import { getSetting } from "../settings";
 
 const BASE = "https://api.elevenlabs.io/v1";
 // A stock multilingual voice used when ELEVENLABS_VOICE_ID isn't set.
@@ -9,11 +10,12 @@ const DEFAULT_VOICE = "JBFqnCBsd6RMkjVDRZzb";
 export const elevenlabs: Voice = {
   async speak(text: string, opts: { language?: string } = {}) {
     const env = getEnv();
-    const voice = env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE;
+    const voice = getSetting("voice_id") || env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE;
     const res = await fetch(`${BASE}/text-to-speech/${voice}?output_format=mp3_44100_128`, {
       method: "POST",
       headers: { "xi-api-key": env.ELEVENLABS_API_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({ text, model_id: "eleven_v3", language_code: opts.language }),
+      // eleven_v3 understands audio tags like [warmly] and pauses ("..."); "natural" stability keeps it human.
+      body: JSON.stringify({ text, model_id: "eleven_v3", language_code: opts.language, voice_settings: { stability: 0.5 } }),
       signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) throw new Error(`ElevenLabs TTS HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);

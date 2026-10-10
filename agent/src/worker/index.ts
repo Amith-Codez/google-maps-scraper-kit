@@ -12,7 +12,7 @@ import { writeEvent } from "../lib/events";
 import { runHealthChecks } from "../lib/health";
 import { setSetting } from "../lib/settings";
 import { BudgetExceededError } from "../lib/llm";
-import { handleArena, handleDiscover, handleEnrich, handlePlan } from "../lib/pipeline";
+import { handleArena, handleBuildPage, handleDiscover, handleEnrich, handlePlan } from "../lib/pipeline";
 import { handleSend, requestFollowUpSend, setOnSent } from "../lib/outbox";
 import { handleFollowUp, handleTriage, runInboxWatcher, scheduleFollowUp } from "../lib/replies";
 import { handleVoiceNote } from "../lib/voice";
@@ -49,6 +49,9 @@ const handlers: Partial<Record<JobType, Handler>> = {
     if (!lead) return;
     await telegram.text(`🔥 ${lead.name} is interested (Talk to Pitchwala voice call)\n\n"${String(payload.summary)}"\n\nNext step: call them at the time they mentioned.${lead.phone ? `\nPhone: ${lead.phone}` : ""}`);
     writeEvent({ campaignId: lead.campaignId, leadId: lead.id, agent: "notifier", type: "ping", summary: "Pinged you on Telegram: interested via voice" });
+  },
+  async page(_job, payload) {
+    await handleBuildPage(Number(payload.leadId));
   },
   async voice_note(_job, payload) {
     await handleVoiceNote(Number(payload.leadId), (payload.lang as "en" | "hi" | "te") ?? "en");
